@@ -12,10 +12,13 @@ Y) in row 0, with the real column names (LIMIT_BAL, SEX, EDUCATION, ...,
 module loads with header=1.
 """
 
+import logging
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 RAW_PATH = BASE_DIR / "data" / "raw" / "default of credit card clients.xls"
@@ -35,23 +38,48 @@ EDUCATION_OTHER_CODE = 4
 MARRIAGE_VALID = {1, 2, 3}
 MARRIAGE_OTHER_CODE = 3
 
+# Standard Tukey's-fences multiplier for IQR-based outlier bounds (the same
+# cutoff a boxplot uses), not a value tuned for this dataset.
+IQR_MULTIPLIER = 1.5
 
-def load_raw_data(path: Path = RAW_PATH) -> pd.DataFrame:
+
+def load_raw_data(path: Path = RAW_PATH) -> tuple[pd.DataFrame, dict[str, int]]:
+    """Load the raw workbook and coerce every column to numeric.
+
+    Returns the dataframe plus a per-column count of values that were
+    coerced to missing because they weren't numeric -- a typo, "grad_school"
+    in a numeric column, a literal "inf" -- distinct from cells that were
+    already blank, so a coercion-heavy column is visible instead of quietly
+    blending into the missing-value counts.
+
+    Caveat: this can't distinguish a blank cell from one of pandas' own
+    recognized missing-value tokens (a source cell literally containing
+    "N/A", "NULL", "NaN", etc.) -- pandas.read_excel treats those as blank
+    at parse time, before this function ever sees them as text. That's the
+    correct call, though: those tokens are already an intentional way of
+    writing "missing", not a data-quality problem, so counting them as
+    "already blank" rather than "coerced" is accurate, not a bug."""
     df = pd.read_excel(path, header=1, engine="xlrd")
+    coerced_counts: dict[str, int] = {}
     # Every column in this dataset is documented as numeric (ID plus 23
     # int-coded features and the target). Coerce the whole frame here, once,
-    # so any stray non-numeric cell (a hand-edited "N/A", a typo, a literal
-    # "inf") surfaces as a tracked missing value at the single point all data
-    # enters the pipeline, instead of crashing several steps downstream in
-    # value_counts/quantile/rounding code that assumes clean numeric input.
+    # so any stray non-numeric cell surfaces as a tracked missing value at
+    # the single point all data enters the pipeline, instead of crashing
+    # several steps downstream in value_counts/quantile/rounding code that
+    # assumes clean numeric input.
     for col in df.columns:
+        was_null = df[col].isnull()
         # pd.to_numeric leaves a column that's entirely True/False as bool
         # dtype (it only converts mixed/object columns), and a bool column
         # crashes quantile() later. Cast it to int first so it's coerced like
         # everything else.
         series = df[col].astype(int) if df[col].dtype == bool else df[col]
-        df[col] = pd.to_numeric(series, errors="coerce").replace([np.inf, -np.inf], np.nan)
-    return df
+        coerced = pd.to_numeric(series, errors="coerce").replace([np.inf, -np.inf], np.nan)
+        newly_null = int((coerced.isnull() & ~was_null).sum())
+        if newly_null:
+            coerced_counts[col] = newly_null
+        df[col] = coerced
+    return df, coerced_counts
 
 
 def check_missing_values(df: pd.DataFrame) -> pd.Series:
@@ -68,10 +96,11 @@ def check_duplicates(df: pd.DataFrame, id_col: str = "ID") -> tuple[pd.DataFrame
 
 
 def cap_outliers_iqr(df: pd.DataFrame, columns: list[str]) -> tuple[pd.DataFrame, dict[str, int]]:
-    """Winsorize each column at Q1-1.5*IQR / Q3+1.5*IQR. Bounds are rounded to
-    whole numbers since these are all whole-currency (NT dollar) columns.
-    Assumes finite numeric input; load_raw_data (the pipeline's only entry
-    point) guarantees this by coercing the whole raw frame up front."""
+    """Winsorize (clip, not drop) each column at Q1-IQR_MULTIPLIER*IQR /
+    Q3+IQR_MULTIPLIER*IQR. Bounds are rounded to whole numbers since these
+    are all whole-currency (NT dollar) columns. Assumes finite numeric
+    input; load_raw_data (the pipeline's only entry point) guarantees this
+    by coercing the whole raw frame up front."""
     df = df.copy()
     cap_counts: dict[str, int] = {}
     for col in columns:
@@ -82,8 +111,8 @@ def cap_outliers_iqr(df: pd.DataFrame, columns: list[str]) -> tuple[pd.DataFrame
         q1 = valid.quantile(0.25)
         q3 = valid.quantile(0.75)
         iqr = q3 - q1
-        lower = round(q1 - 1.5 * iqr)
-        upper = round(q3 + 1.5 * iqr)
+        lower = round(q1 - IQR_MULTIPLIER * iqr)
+        upper = round(q3 + IQR_MULTIPLIER * iqr)
         n_capped = int((df[col].notna() & ((df[col] < lower) | (df[col] > upper))).sum())
         cap_counts[col] = n_capped
         df[col] = df[col].clip(lower=lower, upper=upper).astype(df[col].dtype)
@@ -117,10 +146,11 @@ def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def clean_data(raw_path: Path = RAW_PATH) -> dict:
+def clean_dataframe(raw_path: Path = RAW_PATH) -> dict:
     """Run the full cleaning pipeline and return a report dict alongside the
-    original and cleaned dataframes."""
-    df_original = load_raw_data(raw_path)
+    original and cleaned dataframes. Pure data processing -- no printing, no
+    file writes; see generate_cleaning_report() and save_cleaned_data()."""
+    df_original, coerced_counts = load_raw_data(raw_path)
     original_shape = df_original.shape
     original_dtypes = df_original.dtypes.copy()
 
@@ -152,6 +182,7 @@ def clean_data(raw_path: Path = RAW_PATH) -> dict:
         "df_original": df_original,
         "df_pre_cap": df_pre_cap,
         "df_cleaned": df,
+        "coerced_counts": coerced_counts,
         "original_shape": original_shape,
         "final_shape": df.shape,
         "original_dtypes": original_dtypes,
@@ -171,48 +202,68 @@ def clean_data(raw_path: Path = RAW_PATH) -> dict:
     return report
 
 
-def print_summary(report: dict) -> None:
-    print("=" * 70)
-    print("DATA CLEANING SUMMARY")
-    print("=" * 70)
+def generate_cleaning_report(report: dict) -> str:
+    """Build the human-readable cleaning summary as a single string. Pure
+    formatting -- no I/O; the caller decides how to emit it (logger, print,
+    a file), and this stays trivially testable (just check the return value)."""
+    lines = []
+    lines.append("=" * 70)
+    lines.append("DATA CLEANING SUMMARY")
+    lines.append("=" * 70)
 
-    print(f"\nOriginal shape: {report['original_shape']}")
-    print(f"Final shape:    {report['final_shape']}")
+    lines.append(f"\nOriginal shape: {report['original_shape']}")
+    lines.append(f"Final shape:    {report['final_shape']}")
 
-    print("\n--- Missing values (before cleaning) ---")
-    print(report["missing_before"].to_string())
-    print("\n--- Missing values (after cleaning) ---")
-    print(report["missing_after"].to_string())
+    lines.append("\n--- Non-numeric values coerced to missing (by column) ---")
+    if report["coerced_counts"]:
+        for col, n in report["coerced_counts"].items():
+            lines.append(f"  {col}: {n} value(s) were non-numeric/non-finite, not just blank")
+    else:
+        lines.append("  None -- every value in the raw file was already numeric.")
 
-    print("\n--- Duplicates ---")
-    print(f"Full-row duplicates found:  {report['full_dup_found']}")
-    print(f"Full-row duplicates removed: {report['full_dup_removed']}")
-    print(f"ID-column duplicates found: {report['id_dup_found']}")
+    lines.append("\n--- Missing values (before cleaning) ---")
+    lines.append(report["missing_before"].to_string())
+    lines.append("\n--- Missing values (after cleaning) ---")
+    lines.append(report["missing_after"].to_string())
 
-    print("\n--- Outlier capping (IQR method, per financial column) ---")
+    lines.append("\n--- Duplicates ---")
+    lines.append(f"Full-row duplicates found:  {report['full_dup_found']}")
+    lines.append(f"Full-row duplicates removed: {report['full_dup_removed']}")
+    lines.append(f"ID-column duplicates found: {report['id_dup_found']}")
+
+    lines.append("\n--- Outlier capping (IQR method, per financial column) ---")
     for col, n in report["cap_counts"].items():
-        print(f"  {col}: {n} value(s) capped")
-    print(f"  Total values capped: {sum(report['cap_counts'].values())}")
+        lines.append(f"  {col}: {n} value(s) capped")
+    lines.append(f"  Total values capped: {sum(report['cap_counts'].values())}")
 
-    print("\n--- EDUCATION value_counts (before recoding) ---")
-    print(report["education_before"].to_string())
-    print("\n--- EDUCATION value_counts (after recoding) ---")
-    print(report["education_after"].to_string())
-    print(f"EDUCATION values recoded to 'other' ({EDUCATION_OTHER_CODE}): {report['recode_counts']['EDUCATION']}")
+    lines.append("\n--- EDUCATION value_counts (before recoding) ---")
+    lines.append(report["education_before"].to_string())
+    lines.append("\n--- EDUCATION value_counts (after recoding) ---")
+    lines.append(report["education_after"].to_string())
+    lines.append(f"EDUCATION values recoded to 'other' ({EDUCATION_OTHER_CODE}): {report['recode_counts']['EDUCATION']}")
 
-    print("\n--- MARRIAGE value_counts (before recoding) ---")
-    print(report["marriage_before"].to_string())
-    print("\n--- MARRIAGE value_counts (after recoding) ---")
-    print(report["marriage_after"].to_string())
-    print(f"MARRIAGE values recoded to 'other' ({MARRIAGE_OTHER_CODE}): {report['recode_counts']['MARRIAGE']}")
+    lines.append("\n--- MARRIAGE value_counts (before recoding) ---")
+    lines.append(report["marriage_before"].to_string())
+    lines.append("\n--- MARRIAGE value_counts (after recoding) ---")
+    lines.append(report["marriage_after"].to_string())
+    lines.append(f"MARRIAGE values recoded to 'other' ({MARRIAGE_OTHER_CODE}): {report['recode_counts']['MARRIAGE']}")
 
-    print("\n--- Dtype changes ---")
-    print("Before:")
-    print(report["original_dtypes"].to_string())
-    print("\nAfter (PAY_0 renamed to PAY_1; SEX/EDUCATION/MARRIAGE -> category):")
-    print(report["final_dtypes"].to_string())
+    lines.append("\n--- Dtype changes ---")
+    lines.append("Before:")
+    lines.append(report["original_dtypes"].to_string())
+    lines.append("\nAfter (PAY_0 renamed to PAY_1; SEX/EDUCATION/MARRIAGE -> category):")
+    lines.append(report["final_dtypes"].to_string())
 
-    print("\n" + "=" * 70)
+    lines.append("\n" + "=" * 70)
+    return "\n".join(lines)
+
+
+def save_cleaned_data(df: pd.DataFrame, path: Path = OUTPUT_PATH) -> None:
+    """Write the cleaned dataframe to disk, creating the target directory
+    if needed. Separated from clean_dataframe() so cleaning can be tested
+    without touching the filesystem."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(path, index=False)
 
 
 def run_self_checks(report: dict) -> None:
@@ -221,32 +272,43 @@ def run_self_checks(report: dict) -> None:
 
     # This dataset has zero missing values end to end (verified above), and the
     # pipeline has no imputation policy -- it preserves genuine missingness
-    # rather than masking it (see recode_categoricals' .notna() guards). So this
-    # assertion is a dataset-specific invariant, not a general guarantee: if a
-    # future raw extract ever contains a real missing value, this should fail
-    # loudly here rather than silently continue with unresolved missing data.
-    assert cleaned_df.isnull().sum().sum() == 0, "Cleaned data contains missing values"
+    # rather than masking it (see recode_categoricals' .notna() guards). So
+    # this check is a dataset-specific invariant, not a general guarantee: if
+    # a future raw extract ever contains a real missing value, this should
+    # fail loudly here rather than silently continue with unresolved missing
+    # data. Plain `raise ValueError` rather than `assert`, since assertions
+    # are silently skipped if Python ever runs with the -O optimization flag,
+    # which would defeat the point of a data-validation check.
+    if cleaned_df.isnull().sum().sum() != 0:
+        raise ValueError("Cleaned data contains missing values")
 
     if "ID" in cleaned_df.columns:
-        assert cleaned_df["ID"].is_unique, "ID column is not unique after cleaning"
-    else:
-        assert cleaned_df.duplicated().sum() == 0, "Cleaned data contains duplicate rows"
+        if not cleaned_df["ID"].is_unique:
+            raise ValueError("ID column is not unique after cleaning")
+    elif cleaned_df.duplicated().sum() != 0:
+        raise ValueError("Cleaned data contains duplicate rows")
 
-    assert cleaned_df.shape[0] > 0, "Cleaned data has no rows"
-    assert cleaned_df.shape[0] <= original_shape[0], "Cleaned data has more rows than original"
+    if cleaned_df.shape[0] == 0:
+        raise ValueError("Cleaned data has no rows")
+    if cleaned_df.shape[0] > original_shape[0]:
+        raise ValueError("Cleaned data has more rows than original")
 
     education_values = set(cleaned_df["EDUCATION"].dropna().astype(int).unique())
-    assert education_values <= EDUCATION_VALID, f"Unexpected EDUCATION codes: {education_values - EDUCATION_VALID}"
+    if not education_values <= EDUCATION_VALID:
+        raise ValueError(f"Unexpected EDUCATION codes: {education_values - EDUCATION_VALID}")
 
     marriage_values = set(cleaned_df["MARRIAGE"].dropna().astype(int).unique())
-    assert marriage_values <= MARRIAGE_VALID, f"Unexpected MARRIAGE codes: {marriage_values - MARRIAGE_VALID}"
+    if not marriage_values <= MARRIAGE_VALID:
+        raise ValueError(f"Unexpected MARRIAGE codes: {marriage_values - MARRIAGE_VALID}")
 
-    assert str(cleaned_df["SEX"].dtype) == "category", "SEX was not cast to category"
-    assert str(cleaned_df["EDUCATION"].dtype) == "category", "EDUCATION was not cast to category"
-    assert str(cleaned_df["MARRIAGE"].dtype) == "category", "MARRIAGE was not cast to category"
+    for col in ("SEX", "EDUCATION", "MARRIAGE"):
+        if str(cleaned_df[col].dtype) != "category":
+            raise ValueError(f"{col} was not cast to category")
 
-    assert "PAY_0" not in cleaned_df.columns, "PAY_0 was not renamed"
-    assert "PAY_1" in cleaned_df.columns, "PAY_1 missing after rename"
+    if "PAY_0" in cleaned_df.columns:
+        raise ValueError("PAY_0 was not renamed")
+    if "PAY_1" not in cleaned_df.columns:
+        raise ValueError("PAY_1 missing after rename")
 
     # Independently recompute IQR bounds from the post-dedup, pre-cap data (the
     # same population cap_outliers_iqr itself used) and confirm the cleaned
@@ -259,20 +321,21 @@ def run_self_checks(report: dict) -> None:
         valid = df_pre_cap[col].dropna()
         q1, q3 = valid.quantile(0.25), valid.quantile(0.75)
         iqr = q3 - q1
-        lower, upper = round(q1 - 1.5 * iqr), round(q3 + 1.5 * iqr)
-        assert cleaned_df[col].dropna().between(lower, upper).all(), (
-            f"{col} has values outside its IQR cap bounds [{lower}, {upper}] after cleaning"
-        )
+        lower = round(q1 - IQR_MULTIPLIER * iqr)
+        upper = round(q3 + IQR_MULTIPLIER * iqr)
+        if not cleaned_df[col].dropna().between(lower, upper).all():
+            raise ValueError(f"{col} has values outside its IQR cap bounds [{lower}, {upper}] after cleaning")
 
-    print("\nAll self-checks passed.")
+    logger.info("All self-checks passed.")
 
 
 if __name__ == "__main__":
-    report = clean_data()
-    print_summary(report)
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
-    report["df_cleaned"].to_csv(OUTPUT_PATH, index=False)
-    print(f"\nCleaned data written to: {OUTPUT_PATH}")
+    report = clean_dataframe()
+    logger.info(generate_cleaning_report(report))
+
+    save_cleaned_data(report["df_cleaned"], OUTPUT_PATH)
+    logger.info(f"\nCleaned data written to: {OUTPUT_PATH}")
 
     run_self_checks(report)
