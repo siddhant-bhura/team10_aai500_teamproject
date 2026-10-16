@@ -2,6 +2,8 @@
 data_cleaning.py
 
 Owner: Siddhant
+AI-tool disclosure: revised with the help of Claude Code (Anthropic); the code
+was run and its output checked. See README.md and the report (Section 1).
 Purpose: Data cleaning and preparation for the team's chosen dataset
 (UCI "Default of Credit Card Clients") -- missing values, duplicates,
 outliers, data types, and feature preparation.
@@ -43,7 +45,9 @@ MARRIAGE_OTHER_CODE = 3
 IQR_MULTIPLIER = 1.5
 
 
-def load_raw_data(path: Path = RAW_PATH) -> tuple[pd.DataFrame, dict[str, int]]:
+def load_raw_data(
+    path: Path = RAW_PATH,
+) -> tuple[pd.DataFrame, dict[str, int]]:
     """Load the raw workbook and coerce every column to numeric.
 
     Returns the dataframe plus a per-column count of values that were
@@ -74,7 +78,9 @@ def load_raw_data(path: Path = RAW_PATH) -> tuple[pd.DataFrame, dict[str, int]]:
         # crashes quantile() later. Cast it to int first so it's coerced like
         # everything else.
         series = df[col].astype(int) if df[col].dtype == bool else df[col]
-        coerced = pd.to_numeric(series, errors="coerce").replace([np.inf, -np.inf], np.nan)
+        coerced = pd.to_numeric(series, errors="coerce").replace(
+            [np.inf, -np.inf], np.nan
+        )
         newly_null = int((coerced.isnull() & ~was_null).sum())
         if newly_null:
             coerced_counts[col] = newly_null
@@ -86,16 +92,23 @@ def check_missing_values(df: pd.DataFrame) -> pd.Series:
     return df.isnull().sum()
 
 
-def check_duplicates(df: pd.DataFrame, id_col: str = "ID") -> tuple[pd.DataFrame, int, int]:
-    """Check full-row and ID duplicates; drop exact (full-row) duplicates if found."""
+def check_duplicates(
+    df: pd.DataFrame, id_col: str = "ID"
+) -> tuple[pd.DataFrame, int, int]:
+    """Check full-row and ID duplicates; drop exact (full-row) duplicates
+    if found."""
     full_dup_count = int(df.duplicated().sum())
-    id_dup_count = int(df[id_col].duplicated().sum()) if id_col in df.columns else 0
+    id_dup_count = (
+        int(df[id_col].duplicated().sum()) if id_col in df.columns else 0
+    )
     if full_dup_count > 0:
         df = df.drop_duplicates(keep="first").reset_index(drop=True)
     return df, full_dup_count, id_dup_count
 
 
-def cap_outliers_iqr(df: pd.DataFrame, columns: list[str]) -> tuple[pd.DataFrame, dict[str, int]]:
+def cap_outliers_iqr(
+    df: pd.DataFrame, columns: list[str]
+) -> tuple[pd.DataFrame, dict[str, int]]:
     """Winsorize (clip, not drop) each column at Q1-IQR_MULTIPLIER*IQR /
     Q3+IQR_MULTIPLIER*IQR. Bounds are rounded to whole numbers since these
     are all whole-currency (NT dollar) columns. Assumes finite numeric
@@ -113,22 +126,30 @@ def cap_outliers_iqr(df: pd.DataFrame, columns: list[str]) -> tuple[pd.DataFrame
         iqr = q3 - q1
         lower = round(q1 - IQR_MULTIPLIER * iqr)
         upper = round(q3 + IQR_MULTIPLIER * iqr)
-        n_capped = int((df[col].notna() & ((df[col] < lower) | (df[col] > upper))).sum())
+        outside = (df[col] < lower) | (df[col] > upper)
+        n_capped = int((df[col].notna() & outside).sum())
         cap_counts[col] = n_capped
         df[col] = df[col].clip(lower=lower, upper=upper).astype(df[col].dtype)
     return df, cap_counts
 
 
-def recode_categoricals(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int]]:
-    """Recode undocumented EDUCATION/MARRIAGE codes into the documented 'other' bucket."""
+def recode_categoricals(
+    df: pd.DataFrame,
+) -> tuple[pd.DataFrame, dict[str, int]]:
+    """Recode undocumented EDUCATION/MARRIAGE codes into the documented
+    'other' bucket."""
     df = df.copy()
     recode_counts = {}
 
-    education_mask = df["EDUCATION"].notna() & ~df["EDUCATION"].isin(EDUCATION_VALID)
+    education_mask = df["EDUCATION"].notna() & ~df["EDUCATION"].isin(
+        EDUCATION_VALID
+    )
     recode_counts["EDUCATION"] = int(education_mask.sum())
     df.loc[education_mask, "EDUCATION"] = EDUCATION_OTHER_CODE
 
-    marriage_mask = df["MARRIAGE"].notna() & ~df["MARRIAGE"].isin(MARRIAGE_VALID)
+    marriage_mask = df["MARRIAGE"].notna() & ~df["MARRIAGE"].isin(
+        MARRIAGE_VALID
+    )
     recode_counts["MARRIAGE"] = int(marriage_mask.sum())
     df.loc[marriage_mask, "MARRIAGE"] = MARRIAGE_OTHER_CODE
 
@@ -161,11 +182,12 @@ def clean_dataframe(raw_path: Path = RAW_PATH) -> dict:
     education_before = df["EDUCATION"].value_counts(dropna=False).sort_index()
     marriage_before = df["MARRIAGE"].value_counts(dropna=False).sort_index()
 
-    # Snapshot the post-dedup, pre-cap population: this is what cap_outliers_iqr
-    # itself computes its IQR bounds from. Self-checks must recompute bounds from
-    # this same population, not df_original -- if a future extract contains
-    # duplicate rows, dedup can shift a column's IQR, and comparing against the
-    # raw (pre-dedup) distribution would produce the wrong bounds.
+    # Snapshot the post-dedup, pre-cap population: this is what
+    # cap_outliers_iqr itself computes its IQR bounds from. Self-checks must
+    # recompute bounds from this same population, not df_original -- if a
+    # future extract contains duplicate rows, dedup can shift a column's IQR,
+    # and comparing against the raw (pre-dedup) distribution would produce
+    # the wrong bounds.
     df_pre_cap = df.copy()
 
     df, cap_counts = cap_outliers_iqr(df, FINANCIAL_COLUMNS)
@@ -190,7 +212,8 @@ def clean_dataframe(raw_path: Path = RAW_PATH) -> dict:
         "missing_before": missing_before,
         "missing_after": missing_after,
         "full_dup_found": full_dup_count,
-        "full_dup_removed": full_dup_count,  # drop_duplicates removes all found dups
+        # drop_duplicates removes all found dups
+        "full_dup_removed": full_dup_count,
         "id_dup_found": id_dup_count,
         "cap_counts": cap_counts,
         "recode_counts": recode_counts,
@@ -205,7 +228,8 @@ def clean_dataframe(raw_path: Path = RAW_PATH) -> dict:
 def generate_cleaning_report(report: dict) -> str:
     """Build the human-readable cleaning summary as a single string. Pure
     formatting -- no I/O; the caller decides how to emit it (logger, print,
-    a file), and this stays trivially testable (just check the return value)."""
+    a file), and this stays trivially testable (just check the return
+    value)."""
     lines = []
     lines.append("=" * 70)
     lines.append("DATA CLEANING SUMMARY")
@@ -217,9 +241,14 @@ def generate_cleaning_report(report: dict) -> str:
     lines.append("\n--- Non-numeric values coerced to missing (by column) ---")
     if report["coerced_counts"]:
         for col, n in report["coerced_counts"].items():
-            lines.append(f"  {col}: {n} value(s) were non-numeric/non-finite, not just blank")
+            lines.append(
+                f"  {col}: {n} value(s) were non-numeric/non-finite, "
+                "not just blank"
+            )
     else:
-        lines.append("  None -- every value in the raw file was already numeric.")
+        lines.append(
+            "  None -- every value in the raw file was already numeric."
+        )
 
     lines.append("\n--- Missing values (before cleaning) ---")
     lines.append(report["missing_before"].to_string())
@@ -231,27 +260,39 @@ def generate_cleaning_report(report: dict) -> str:
     lines.append(f"Full-row duplicates removed: {report['full_dup_removed']}")
     lines.append(f"ID-column duplicates found: {report['id_dup_found']}")
 
-    lines.append("\n--- Outlier capping (IQR method, per financial column) ---")
+    lines.append(
+        "\n--- Outlier capping (IQR method, per financial column) ---"
+    )
     for col, n in report["cap_counts"].items():
         lines.append(f"  {col}: {n} value(s) capped")
-    lines.append(f"  Total values capped: {sum(report['cap_counts'].values())}")
+    total_capped = sum(report["cap_counts"].values())
+    lines.append(f"  Total values capped: {total_capped}")
 
     lines.append("\n--- EDUCATION value_counts (before recoding) ---")
     lines.append(report["education_before"].to_string())
     lines.append("\n--- EDUCATION value_counts (after recoding) ---")
     lines.append(report["education_after"].to_string())
-    lines.append(f"EDUCATION values recoded to 'other' ({EDUCATION_OTHER_CODE}): {report['recode_counts']['EDUCATION']}")
+    lines.append(
+        f"EDUCATION values recoded to 'other' ({EDUCATION_OTHER_CODE}): "
+        f"{report['recode_counts']['EDUCATION']}"
+    )
 
     lines.append("\n--- MARRIAGE value_counts (before recoding) ---")
     lines.append(report["marriage_before"].to_string())
     lines.append("\n--- MARRIAGE value_counts (after recoding) ---")
     lines.append(report["marriage_after"].to_string())
-    lines.append(f"MARRIAGE values recoded to 'other' ({MARRIAGE_OTHER_CODE}): {report['recode_counts']['MARRIAGE']}")
+    lines.append(
+        f"MARRIAGE values recoded to 'other' ({MARRIAGE_OTHER_CODE}): "
+        f"{report['recode_counts']['MARRIAGE']}"
+    )
 
     lines.append("\n--- Dtype changes ---")
     lines.append("Before:")
     lines.append(report["original_dtypes"].to_string())
-    lines.append("\nAfter (PAY_0 renamed to PAY_1; SEX/EDUCATION/MARRIAGE -> category):")
+    lines.append(
+        "\nAfter (PAY_0 renamed to PAY_1; "
+        "SEX/EDUCATION/MARRIAGE -> category):"
+    )
     lines.append(report["final_dtypes"].to_string())
 
     lines.append("\n" + "=" * 70)
@@ -293,13 +334,19 @@ def run_self_checks(report: dict) -> None:
     if cleaned_df.shape[0] > original_shape[0]:
         raise ValueError("Cleaned data has more rows than original")
 
-    education_values = set(cleaned_df["EDUCATION"].dropna().astype(int).unique())
+    education_values = set(
+        cleaned_df["EDUCATION"].dropna().astype(int).unique()
+    )
     if not education_values <= EDUCATION_VALID:
-        raise ValueError(f"Unexpected EDUCATION codes: {education_values - EDUCATION_VALID}")
+        raise ValueError(
+            f"Unexpected EDUCATION codes: {education_values - EDUCATION_VALID}"
+        )
 
     marriage_values = set(cleaned_df["MARRIAGE"].dropna().astype(int).unique())
     if not marriage_values <= MARRIAGE_VALID:
-        raise ValueError(f"Unexpected MARRIAGE codes: {marriage_values - MARRIAGE_VALID}")
+        raise ValueError(
+            f"Unexpected MARRIAGE codes: {marriage_values - MARRIAGE_VALID}"
+        )
 
     for col in ("SEX", "EDUCATION", "MARRIAGE"):
         if str(cleaned_df[col].dtype) != "category":
@@ -324,7 +371,10 @@ def run_self_checks(report: dict) -> None:
         lower = round(q1 - IQR_MULTIPLIER * iqr)
         upper = round(q3 + IQR_MULTIPLIER * iqr)
         if not cleaned_df[col].dropna().between(lower, upper).all():
-            raise ValueError(f"{col} has values outside its IQR cap bounds [{lower}, {upper}] after cleaning")
+            raise ValueError(
+                f"{col} has values outside its IQR cap bounds "
+                f"[{lower}, {upper}] after cleaning"
+            )
 
     logger.info("All self-checks passed.")
 

@@ -1,0 +1,76 @@
+feature_set,variant,hidden_layer_sizes,alpha,early_stopping,cv_pr_auc,cv_pr_auc_std,cv_roc_auc
+baseline_eda,plain,"(32,)",0.001,True,0.5285,0.0116,0.755
+baseline_eda,plain,"(32,)",0.001,False,0.537,0.0088,0.758
+baseline_eda,plain,"(32,)",0.01,True,0.5289,0.0116,0.7553
+baseline_eda,plain,"(32,)",0.01,False,0.5393,0.0094,0.7583
+baseline_eda,plain,"(32,)",0.1,True,0.5294,0.0119,0.7553
+baseline_eda,plain,"(32,)",0.1,False,0.5393,0.0112,0.7597
+baseline_eda,plain,"(32,)",1.0,True,0.5237,0.0123,0.7513
+baseline_eda,plain,"(32,)",1.0,False,0.524,0.0123,0.7514
+baseline_eda,plain,"(64, 32)",0.001,True,0.5359,0.007,0.7576
+baseline_eda,plain,"(64, 32)",0.001,False,0.5318,0.0061,0.7531
+baseline_eda,plain,"(64, 32)",0.01,True,0.5386,0.0068,0.7583
+baseline_eda,plain,"(64, 32)",0.01,False,0.5333,0.0064,0.7552
+baseline_eda,plain,"(64, 32)",0.1,True,0.5369,0.0104,0.758
+baseline_eda,plain,"(64, 32)",0.1,False,0.5441,0.0078,0.7596
+baseline_eda,plain,"(64, 32)",1.0,True,0.5282,0.0119,0.7542
+baseline_eda,plain,"(64, 32)",1.0,False,0.5307,0.012,0.7536
+baseline_eda,plain,"(128, 64)",0.001,True,0.5348,0.0091,0.7559
+baseline_eda,plain,"(128, 64)",0.001,False,0.5211,0.0133,0.7452
+baseline_eda,plain,"(128, 64)",0.01,True,0.5357,0.0093,0.7572
+baseline_eda,plain,"(128, 64)",0.01,False,0.5321,0.0098,0.7526
+baseline_eda,plain,"(128, 64)",0.1,True,0.5343,0.0126,0.7558
+baseline_eda,plain,"(128, 64)",0.1,False,0.5428,0.0084,0.7602
+baseline_eda,plain,"(128, 64)",1.0,True,0.5284,0.0121,0.7529
+baseline_eda,plain,"(128, 64)",1.0,False,0.5303,0.0112,0.754
+baseline_eda,oversampled,"(64, 32)",0.1,False,0.5412,0.009,0.757
+extended,plain,"(32,)",0.001,True,0.5267,0.0109,0.7677
+extended,plain,"(32,)",0.001,False,0.5404,0.004,0.7734
+extended,plain,"(32,)",0.01,True,0.5273,0.0111,0.7665
+extended,plain,"(32,)",0.01,False,0.5405,0.0047,0.7736
+extended,plain,"(32,)",0.1,True,0.5263,0.0128,0.7658
+extended,plain,"(32,)",0.1,False,0.5478,0.0074,0.778
+extended,plain,"(32,)",1.0,True,0.5263,0.0122,0.7682
+extended,plain,"(32,)",1.0,False,0.5342,0.0118,0.7731
+extended,plain,"(64, 32)",0.001,True,0.5484,0.0079,0.7771
+extended,plain,"(64, 32)",0.001,False,0.5053,0.0084,0.7455
+extended,plain,"(64, 32)",0.01,True,0.549,0.006,0.7767
+extended,plain,"(64, 32)",0.01,False,0.5058,0.0089,0.7482
+extended,plain,"(64, 32)",0.1,True,0.5469,0.0083,0.7764
+extended,plain,"(64, 32)",0.1,False,0.5492,0.0022,0.7768
+extended,plain,"(64, 32)",1.0,True,0.5357,0.014,0.7738
+extended,plain,"(64, 32)",1.0,False,0.5369,0.0136,0.7747
+extended,plain,"(128, 64)",0.001,True,0.5431,0.0121,0.7744
+extended,plain,"(128, 64)",0.001,False,0.4701,0.0196,0.7185
+extended,plain,"(128, 64)",0.01,True,0.543,0.0121,0.775
+extended,plain,"(128, 64)",0.01,False,0.4798,0.0032,0.7313
+extended,plain,"(128, 64)",0.1,True,0.552,0.0077,0.7787
+extended,plain,"(128, 64)",0.1,False,0.5474,0.005,0.7763
+extended,plain,"(128, 64)",1.0,True,0.536,0.0136,0.7734
+extended,plain,"(128, 64)",1.0,False,0.5377,0.0135,0.7744
+extended,oversampled,"(128, 64)",0.1,True,0.544,0.0093,0.7774
+kitchen_sink,plain,"(32,)",0.001,True,0.5286,0.0093,0.7731
+kitchen_sink,plain,"(32,)",0.001,False,0.5329,0.004,0.7736
+kitchen_sink,plain,"(32,)",0.01,True,0.5306,0.0091,0.7744
+kitchen_sink,plain,"(32,)",0.01,False,0.5322,0.005,0.7738
+kitchen_sink,plain,"(32,)",0.1,True,0.5319,0.0097,0.7752
+kitchen_sink,plain,"(32,)",0.1,False,0.5418,0.0089,0.7789
+kitchen_sink,plain,"(32,)",1.0,True,0.5289,0.0136,0.7721
+kitchen_sink,plain,"(32,)",1.0,False,0.5383,0.0105,0.7776
+kitchen_sink,plain,"(64, 32)",0.001,True,0.5401,0.01,0.7747
+kitchen_sink,plain,"(64, 32)",0.001,False,0.4425,0.0148,0.717
+kitchen_sink,plain,"(64, 32)",0.01,True,0.539,0.0105,0.7744
+kitchen_sink,plain,"(64, 32)",0.01,False,0.4526,0.0103,0.7225
+kitchen_sink,plain,"(64, 32)",0.1,True,0.5393,0.0114,0.775
+kitchen_sink,plain,"(64, 32)",0.1,False,0.5144,0.0072,0.757
+kitchen_sink,plain,"(64, 32)",1.0,True,0.5381,0.0114,0.776
+kitchen_sink,plain,"(64, 32)",1.0,False,0.5438,0.0099,0.7794
+kitchen_sink,plain,"(128, 64)",0.001,True,0.5402,0.0094,0.7763
+kitchen_sink,plain,"(128, 64)",0.001,False,0.4128,0.014,0.6957
+kitchen_sink,plain,"(128, 64)",0.01,True,0.5406,0.009,0.7761
+kitchen_sink,plain,"(128, 64)",0.01,False,0.4288,0.0225,0.7035
+kitchen_sink,plain,"(128, 64)",0.1,True,0.5383,0.0071,0.7762
+kitchen_sink,plain,"(128, 64)",0.1,False,0.4752,0.0125,0.7372
+kitchen_sink,plain,"(128, 64)",1.0,True,0.5367,0.0107,0.7771
+kitchen_sink,plain,"(128, 64)",1.0,False,0.5416,0.0116,0.7794
+kitchen_sink,oversampled,"(64, 32)",1.0,False,0.5396,0.0099,0.7803

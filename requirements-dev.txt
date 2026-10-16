@@ -1,0 +1,2 @@
+# Optional: PEP 8 check. Run: flake8 --max-line-length 100 src tools run_all.py
+flake8

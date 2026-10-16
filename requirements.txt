@@ -1,0 +1,9 @@
+# Tested with Python 3.14.6. Versions read from the environment the scripts were run in.
+matplotlib==3.11.2
+numpy==2.5.3
+pandas==3.0.6
+scikit-learn==1.9.1
+scipy==1.18.1
+seaborn==0.13.2
+statsmodels==0.15.0
+xlrd==2.0.2
