@@ -1,4 +1,4 @@
-<div class="cover">
+
 
 # Predicting Credit Card Default
 
@@ -16,9 +16,9 @@ University of San Diego, Applied Artificial Intelligence (AAI-500)
 
 October 2026
 
-</div>
 
-<div class="pagebreak"></div>
+
+
 
 ## Contents
 
@@ -41,11 +41,13 @@ October 2026
 
 **Who wrote what.** Section 2 was written by Siddhant Bhura. Section 3 is based on the analysis and findings write-up by Eshwar Reddy M. Sections 4 and 5 are based on the modeling code and findings write-up by Umesh Sharma. The neural network parts of Sections 4 and 5 (Sections 4.5 and 5.7, and Appendix 8.8) were written by Siddhant Bhura, with code in `src/neural_network.py`. The Introduction (Section 1) was assigned to Prasad Pidaparty in the team plan. Section 1 here was compiled by the team from the status form and the dataset documentation. Section 6 and the compiled layout were assembled for the team from those inputs. Every number in this report comes from the team's code or its saved output files.
 
-**Use of AI tools.** Siddhant Bhura used Claude Code (Anthropic's AI coding assistant) while preparing the parts listed as his above. It helped write and test `src/neural_network.py`, `src/robustness_checks.py`, `run_all.py`, `Makefile` and `tools/build_report.py`, helped revise `src/data_cleaning.py` and the notebook, and helped draft and edit the text of Sections 2, 4.5, 5.5 to 5.7 and 6, the appendix, the README and the video outline. Every script was run, and every number in this report was checked against the saved output files. Siddhant takes responsibility for the content of those parts. The same disclosure is in the README, in the header of each file named above, and in the first cell of the notebook. Each teammate should add a line here for any AI tool used on their own sections (Sections 1, 3, 4.1 to 4.4, 4.6, 4.7, 5.1 to 5.4 and the files `src/exploratory_analysis.py` and `src/modeling.py`). We have no record of that and have not written it for them.
+**AI tool disclosure.** Different team members used a mix of AI Code Assistants to save time and produce better code quality of the Solution. e.g ClaudeCode, GitHiub CoPilot etc.
 
-<div class="pagebreak"></div>
+
 
 ## 1. Introduction
+
+
 
 ### 1.1 The business problem
 
@@ -59,14 +61,16 @@ The data comes from a Taiwanese bank and is hosted by the UCI Machine Learning R
 
 The team chose it by group vote from six candidate datasets. We wanted something large and rich enough for a full analysis that still runs on a laptop.
 
-| Group | Columns | What they hold |
-|---|---|---|
-| Customer profile | `SEX`, `EDUCATION`, `MARRIAGE`, `AGE` | Who the customer is |
-| Credit line | `LIMIT_BAL` | Credit limit in New Taiwan dollars (NT$) |
-| Repayment status | `PAY_1` to `PAY_6` | How late the payment was, for each of the last six months |
-| Bills | `BILL_AMT1` to `BILL_AMT6` | Amount billed each month |
-| Payments | `PAY_AMT1` to `PAY_AMT6` | Amount actually paid each month |
-| Outcome | `default payment next month` | 1 if the customer defaulted the following month, else 0 |
+
+| Group            | Columns                               | What they hold                                            |
+| ---------------- | ------------------------------------- | --------------------------------------------------------- |
+| Customer profile | `SEX`, `EDUCATION`, `MARRIAGE`, `AGE` | Who the customer is                                       |
+| Credit line      | `LIMIT_BAL`                           | Credit limit in New Taiwan dollars (NT$)                  |
+| Repayment status | `PAY_1` to `PAY_6`                    | How late the payment was, for each of the last six months |
+| Bills            | `BILL_AMT1` to `BILL_AMT6`            | Amount billed each month                                  |
+| Payments         | `PAY_AMT1` to `PAY_AMT6`              | Amount actually paid each month                           |
+| Outcome          | `default payment next month`          | 1 if the customer defaulted the following month, else 0   |
+
 
 That is 23 features plus the outcome. The file also has an `ID` column, so the raw file has 25 columns. In total, 6,636 of 30,000 customers (22.12%) defaulted.
 
@@ -86,11 +90,11 @@ A useful model gives the bank a risk score per customer. Collections staff can t
 
 Our working expectation, written before modeling, was that repayment history would matter far more than demographics, and that tree models would beat a plain logistic regression because the relationships are not straight lines. Sections 3 to 5 test both. Each section starts with the plain-language point, then gives the technical detail.
 
-<div class="pagebreak"></div>
+
 
 ## 2. Data Cleaning and Preparation
 
-*Written by Siddhant Bhura. Code: `src/data_cleaning.py`.*
+*Written by Siddhant Bhura. Code:* `src/data_cleaning.py`*.*
 
 **In plain terms.** The raw file was already unusually tidy. There were no blanks and no repeated customers. The main work was fixing a confusing header, tidying a few undocumented category codes, and trimming extreme dollar amounts so a handful of very large accounts do not dominate the results. No rows were removed.
 
@@ -114,11 +118,13 @@ The credit limit and the bill and payment amounts (13 columns) are heavily right
 
 In total, **32,425 values were capped** across the 13 columns (about 8.3% of the 390,000 cells). No rows were dropped.
 
-| Column group | Values capped |
-|---|---|
-| `LIMIT_BAL` | 167 |
+
+| Column group               | Values capped                                 |
+| -------------------------- | --------------------------------------------- |
+| `LIMIT_BAL`                | 167                                           |
 | `BILL_AMT1` to `BILL_AMT6` | 2,400 / 2,395 / 2,469 / 2,622 / 2,725 / 2,693 |
-| `PAY_AMT1` to `PAY_AMT6` | 2,745 / 2,714 / 2,598 / 2,994 / 2,945 / 2,958 |
+| `PAY_AMT1` to `PAY_AMT6`   | 2,745 / 2,714 / 2,598 / 2,994 / 2,945 / 2,958 |
+
 
 Columns that are codes rather than amounts (`AGE`, `SEX`, and the six repayment-status columns) were deliberately not capped.
 
@@ -130,6 +136,8 @@ Columns that are codes rather than amounts (`AGE`, `SEX`, and the six repayment-
 - Capped rows default less often (14.91%) than untouched rows (25.87%).
 - The raw file has 3,932 negative bill cells (a credit balance). These are real and were left as they are.
 
+
+
 ### 2.5 Category codes
 
 The dataset documentation defines `EDUCATION` as 1 to 4 (graduate school, university, high school, other) and `MARRIAGE` as 1 to 3 (married, single, other). The data also holds undocumented codes: `EDUCATION` values 0, 5 and 6 (345 rows) and `MARRIAGE` value 0 (54 rows). We merged them into the existing "other" group (`EDUCATION` 4 and `MARRIAGE` 3). This is a judgment call, not something the dataset documentation requires. "Other" already exists and is the closest fit for an unlabelled code.
@@ -140,6 +148,8 @@ The repayment-status columns also contain the codes -2 and 0 (120,334 cells), wh
 
 - `PAY_0` was renamed `PAY_1`. In the raw file the most recent month is numbered 0 while the others are `PAY_2` to `PAY_6`.
 - `SEX`, `EDUCATION` and `MARRIAGE` were converted to a categorical type, because they are labels, not quantities. The saved CSV stores them as plain integer codes, so any script that reads the CSV needs to convert them again.
+
+
 
 ### 2.7 Output and automatic checks
 
@@ -155,11 +165,11 @@ The cleaned file, with all 30,000 rows and 25 columns, is saved as `data/process
 
 The last run finished with "All self-checks passed", and the output file was identical to the one already saved.
 
-<div class="pagebreak"></div>
+
 
 ## 3. Exploratory Data Analysis
 
-*Based on the analysis by Eshwar Reddy M. Code: `src/exploratory_analysis.py`. Full tables are in `reports/eda_findings.md`. The tests and plots use SciPy (Virtanen et al., 2020), statsmodels (Seabold & Perktold, 2010), Matplotlib (Hunter, 2007) and seaborn (Waskom, 2021).*
+*Based on the analysis by Eshwar Reddy M. Code:* `src/exploratory_analysis.py`*. Full tables are in* `reports/eda_findings.md`*. The tests and plots use SciPy (Virtanen et al., 2020), statsmodels (Seabold & Perktold, 2010), Matplotlib (Hunter, 2007) and seaborn (Waskom, 2021).*
 
 **In plain terms.** The strongest clue about next month's default is whether the customer has been paying late. Demographic details such as age, sex and education show statistically detectable but small effects. Customers who pay nothing against their bill, or who were late recently, default far more often.
 
@@ -179,11 +189,13 @@ Every money variable has a long tail to the right, with the mean above the media
 
 Each demographic column was tested against default with a chi-square test. With 30,000 customers almost any difference is "significant", so Cramer's V (an effect size from 0 to 1) is shown too.
 
-| Variable | Default rates | Cramer's V |
-|---|---|---|
-| `SEX` | Male 24.17%, Female 20.78% | 0.040 |
-| `EDUCATION` | Graduate 19.23%, University 23.73%, High school 25.16%, Other 7.05% | 0.073 |
-| `MARRIAGE` | Married 23.47%, Single 20.93%, Other 23.61% | 0.031 |
+
+| Variable    | Default rates                                                       | Cramer's V |
+| ----------- | ------------------------------------------------------------------- | ---------- |
+| `SEX`       | Male 24.17%, Female 20.78%                                          | 0.040      |
+| `EDUCATION` | Graduate 19.23%, University 23.73%, High school 25.16%, Other 7.05% | 0.073      |
+| `MARRIAGE`  | Married 23.47%, Single 20.93%, Other 23.61%                         | 0.031      |
+
 
 All three are statistically significant (p < .001) and all three are small. Age follows a U shape. The default rate is 26.66% for ages 21 to 25, drops to 19.43% for ages 31 to 35, and rises to 26.84% for ages over 60. A single straight-line measure misses this, so age is better used in bands.
 
@@ -195,15 +207,17 @@ Customers who were current on their latest payment (paid on time, or no balance)
 
 Counting how many of the six months were late is even cleaner. The default rate rises from 11.71% with no late months to 70.32% with six.
 
+
 | Late months (of 6) | Customers | Default rate |
-|---|---|---|
-| 0 | 19,931 | 11.71% |
-| 1 | 4,426 | 29.82% |
-| 2 | 1,899 | 38.76% |
-| 3 | 1,154 | 50.87% |
-| 4 | 951 | 57.31% |
-| 5 | 298 | 57.38% |
-| 6 | 1,341 | 70.32% |
+| ------------------ | --------- | ------------ |
+| 0                  | 19,931    | 11.71%       |
+| 1                  | 4,426     | 29.82%       |
+| 2                  | 1,899     | 38.76%       |
+| 3                  | 1,154     | 50.87%       |
+| 4                  | 951       | 57.31%       |
+| 5                  | 298       | 57.38%       |
+| 6                  | 1,341     | 70.32%       |
+
 
 ![Figure 3.4: Default rate by most recent repayment status (left) and by number of late months (right).](figures/04_repayment_history.png)
 
@@ -219,12 +233,14 @@ Two consequences. First, comparing the latest month with an earlier one (for exa
 
 Comparing the latest payment (`PAY_AMT1`) with the previous bill (`BILL_AMT2`) gives the share of the bill repaid. Customers with an outstanding bill are grouped below.
 
+
 | Share of bill repaid | Customers | Default rate |
-|---|---|---|
-| Nothing | 2,325 | 51.78% |
-| Token (under 20%) | 15,803 | 21.12% |
-| Partial (20% to 99%) | 3,199 | 15.75% |
-| In full | 5,498 | 15.39% |
+| -------------------- | --------- | ------------ |
+| Nothing              | 2,325     | 51.78%       |
+| Token (under 20%)    | 15,803    | 21.12%       |
+| Partial (20% to 99%) | 3,199     | 15.75%       |
+| In full              | 5,498     | 15.39%       |
+
 
 Paying nothing is the riskiest group in each of the three months tested (51.78%, 49.24% and 45.64%). The order of the other groups is not stable: partial payers default slightly more than full payers in the most recent month and slightly less in the other two. This measure uses amounts, so the status-code quirk does not affect it.
 
@@ -260,11 +276,11 @@ The raw file also shows what capping hides. 2,115 customers (7.0%) carry a balan
 
 ![Figure 3.10: Effect of capping: share of rows changed, skew before and after, and default rate of capped versus untouched rows.](figures/12_cleaning_validation.png)
 
-<div class="pagebreak"></div>
+
 
 ## 4. Model Selection
 
-*Sections 4.1 to 4.4, 4.6 and 4.7 are based on the modeling code and findings by Umesh Sharma (`src/modeling.py`). Section 4.5 is the neural network addition by Siddhant Bhura (`src/neural_network.py`).*
+*Sections 4.1 to 4.4, 4.6 and 4.7 are based on the modeling code and findings by Umesh Sharma (*`src/modeling.py`*). Section 4.5 is the neural network addition by Siddhant Bhura (*`src/neural_network.py`*).*
 
 **In plain terms.** We tried four kinds of model on three sets of inputs, and compared them fairly on data they had not seen. The two tree-based models came out about equal, and both clearly beat the simplest model. A neural network, added at the team's request, landed in the same narrow band as the trees but did not beat them. We picked one tree model, but the top few are so close that the choice is a judgment call.
 
@@ -277,54 +293,66 @@ The raw file also shows what capping hides. 2,115 customers (7.0%) carry a balan
 - **Imbalance.** The logistic regression and the tree models weight the rare defaulter class more heavily, so they do not ignore it. The neural network has no such setting, and Section 4.5 explains how it was handled instead.
 - **Repeatability.** A fixed random seed (42) is used throughout. The numbers in this report come from one run of the code, in the environment listed in Section 8.
 
+
+
 ### 4.2 Inputs tried
 
 New columns were built from the EDA findings. Each uses only that customer's own row, so none uses the outcome.
 
-| Built column | Meaning |
-|---|---|
-| `MONTHS_DELINQUENT` | Number of the six months that were late |
-| `MAX_DELINQUENCY` | Worst repayment status in the six months |
-| `RECENT_LATE`, `DISTANT_LATE` | Number of late months among the latest two, and among the oldest two |
-| `PAID_SHARE` | Latest payment divided by the previous bill (set to 0 when the previous bill is zero or negative) |
-| `INACTIVE` | 1 if all six bills or all six payments are zero |
-| `UTILIZATION` | Latest bill divided by credit limit |
-| `AGE_BAND` | Age in bands, because the age effect is U-shaped |
+
+| Built column                  | Meaning                                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| `MONTHS_DELINQUENT`           | Number of the six months that were late                                                           |
+| `MAX_DELINQUENCY`             | Worst repayment status in the six months                                                          |
+| `RECENT_LATE`, `DISTANT_LATE` | Number of late months among the latest two, and among the oldest two                              |
+| `PAID_SHARE`                  | Latest payment divided by the previous bill (set to 0 when the previous bill is zero or negative) |
+| `INACTIVE`                    | 1 if all six bills or all six payments are zero                                                   |
+| `UTILIZATION`                 | Latest bill divided by credit limit                                                               |
+| `AGE_BAND`                    | Age in bands, because the age effect is U-shaped                                                  |
+
 
 Three input sets of growing size were compared:
 
-| Input set | Contents |
-|---|---|
+
+| Input set      | Contents                                                                                                                                  |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `baseline_eda` | The EDA's recommended starting point: late-month count, latest status, share repaid, inactive flag, recent and distant lateness, age band |
-| `extended` | Baseline plus second-month status, worst status, credit limit, utilization, latest payment |
-| `kitchen_sink` | 27 numeric columns: all six statuses, all bills, all payments, plus the built columns |
+| `extended`     | Baseline plus second-month status, worst status, credit limit, utilization, latest payment                                                |
+| `kitchen_sink` | 27 numeric columns: all six statuses, all bills, all payments, plus the built columns                                                     |
+
 
 Sex, education and marital status are left out of every set. They had little predictive value in the EDA, and sex is a protected attribute in consumer lending.
 
 ### 4.3 Models tried
 
-| Model | Why it is here | Settings |
-|---|---|---|
-| Logistic regression | A simple, widely understood benchmark | Balanced class weights, inputs scaled |
-| Random forest (Breiman, 2001) | Many decision trees voting | 300 trees, depth up to 12, at least 20 customers per leaf |
-| Histogram gradient boosting (Friedman, 2001) | Trees built one after another, each correcting the last | Depth 6, learning rate 0.08, 250 rounds |
-| Neural network (MLP; Rumelhart et al., 1986) | Layers of small units that each weigh the inputs and pass a signal on | Searched over a small grid, see Section 4.5 |
+
+| Model                                        | Why it is here                                                        | Settings                                                  |
+| -------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------- |
+| Logistic regression                          | A simple, widely understood benchmark                                 | Balanced class weights, inputs scaled                     |
+| Random forest (Breiman, 2001)                | Many decision trees voting                                            | 300 trees, depth up to 12, at least 20 customers per leaf |
+| Histogram gradient boosting (Friedman, 2001) | Trees built one after another, each correcting the last               | Depth 6, learning rate 0.08, 250 rounds                   |
+| Neural network (MLP; Rumelhart et al., 1986) | Layers of small units that each weigh the inputs and pass a signal on | Searched over a small grid, see Section 4.5               |
+
+
+
 
 ### 4.4 Results of the first comparison (logistic regression and trees)
 
 This is the comparison produced by `src/modeling.py`. Section 4.5 adds the neural network to it and gives the combined table.
 
-| Input set | Model | CV PR-AUC (mean) | CV PR-AUC (std) | CV ROC-AUC |
-|---|---|---|---|---|
-| kitchen_sink | hist_gradient_boosting | 0.5600 | 0.0060 | 0.7811 |
-| kitchen_sink | random_forest | 0.5585 | 0.0073 | 0.7844 |
-| extended | random_forest | 0.5547 | 0.0082 | 0.7813 |
-| extended | hist_gradient_boosting | 0.5542 | 0.0077 | 0.7789 |
-| baseline_eda | hist_gradient_boosting | 0.5406 | 0.0089 | 0.7579 |
-| baseline_eda | random_forest | 0.5394 | 0.0105 | 0.7579 |
-| baseline_eda | logistic_regression | 0.5101 | 0.0121 | 0.7443 |
-| kitchen_sink | logistic_regression | 0.5094 | 0.0143 | 0.7638 |
-| extended | logistic_regression | 0.5090 | 0.0138 | 0.7615 |
+
+| Input set    | Model                  | CV PR-AUC (mean) | CV PR-AUC (std) | CV ROC-AUC |
+| ------------ | ---------------------- | ---------------- | --------------- | ---------- |
+| kitchen_sink | hist_gradient_boosting | 0.5600           | 0.0060          | 0.7811     |
+| kitchen_sink | random_forest          | 0.5585           | 0.0073          | 0.7844     |
+| extended     | random_forest          | 0.5547           | 0.0082          | 0.7813     |
+| extended     | hist_gradient_boosting | 0.5542           | 0.0077          | 0.7789     |
+| baseline_eda | hist_gradient_boosting | 0.5406           | 0.0089          | 0.7579     |
+| baseline_eda | random_forest          | 0.5394           | 0.0105          | 0.7579     |
+| baseline_eda | logistic_regression    | 0.5101           | 0.0121          | 0.7443     |
+| kitchen_sink | logistic_regression    | 0.5094           | 0.0143          | 0.7638     |
+| extended     | logistic_regression    | 0.5090           | 0.0138          | 0.7615     |
+
 
 ![Figure 4.1: Cross-validated PR-AUC for every model and input set. Bars show the mean, lines show the spread across folds.](report_figures/model_03_leaderboard.png)
 
@@ -335,9 +363,11 @@ What the table says:
 - The top two rows differ by 0.0015, which is much smaller than the fold-to-fold spread of 0.006 to 0.007. **The two cannot be told apart statistically.** Picking the first row is a judgment call, and a different run environment could reverse the order.
 - The bill columns overlap heavily (Section 3.7). Tree models cope with this, which is one reason the linear model gains nothing from the extra columns.
 
+
+
 ### 4.5 Adding a neural network
 
-*Written by Siddhant Bhura. Code: `src/neural_network.py`. Outputs: `reports/neural_network/`.*
+*Written by Siddhant Bhura. Code:* `src/neural_network.py`*. Outputs:* `reports/neural_network/`*.*
 
 The team asked whether a neural network could be included in Model Selection and Analysis. It can, and it is treated here as a full candidate, scored by the same rules as the other models.
 
@@ -367,20 +397,24 @@ The team asked whether a neural network could be included in Model Selection and
 
 **Results.** Best network for each input set:
 
-| Input set | Network setting | CV PR-AUC | CV std | Exam PR-AUC | Exam ROC-AUC |
-|---|---|---|---|---|---|
-| extended | two layers (128, 64), penalty 0.1, early stopping on | 0.5520 | 0.0077 | 0.5527 | 0.7692 |
-| baseline_eda | two layers (64, 32), penalty 0.1, early stopping off | 0.5441 | 0.0078 | 0.5379 | 0.7479 |
-| kitchen_sink | two layers (64, 32), penalty 1.0, early stopping off | 0.5438 | 0.0099 | 0.5397 | 0.7692 |
+
+| Input set    | Network setting                                      | CV PR-AUC | CV std | Exam PR-AUC | Exam ROC-AUC |
+| ------------ | ---------------------------------------------------- | --------- | ------ | ----------- | ------------ |
+| extended     | two layers (128, 64), penalty 0.1, early stopping on | 0.5520    | 0.0077 | 0.5527      | 0.7692       |
+| baseline_eda | two layers (64, 32), penalty 0.1, early stopping off | 0.5441    | 0.0078 | 0.5379      | 0.7479       |
+| kitchen_sink | two layers (64, 32), penalty 1.0, early stopping off | 0.5438    | 0.0099 | 0.5397      | 0.7692       |
+
 
 Side-by-side with the best version of each other model. "Best" means highest CV PR-AUC across the three input sets. Cut-off columns use the out-of-fold rule described above.
 
-| Model (input set) | CV PR-AUC | CV std | CV ROC-AUC | Exam PR-AUC | Exam ROC-AUC | Exam F1 | Exam recall | Exam precision |
-|---|---|---|---|---|---|---|---|---|
-| Hist. gradient boosting (`kitchen_sink`) | 0.5600 | 0.0060 | 0.7811 | 0.5499 | 0.7760 | 0.5402 | 0.5546 | 0.5265 |
-| Random forest (`kitchen_sink`) | 0.5585 | 0.0073 | 0.7844 | 0.5558 | 0.7750 | 0.5415 | 0.5780 | 0.5093 |
-| **Neural network (`extended`)** | **0.5520** | **0.0077** | **0.7787** | **0.5527** | **0.7692** | **0.5419** | **0.5365** | **0.5473** |
-| Logistic regression (`baseline_eda`) | 0.5101 | 0.0121 | 0.7443 | 0.5081 | 0.7311 | 0.5224 | 0.5320 | 0.5131 |
+
+| Model (input set)                        | CV PR-AUC  | CV std     | CV ROC-AUC | Exam PR-AUC | Exam ROC-AUC | Exam F1    | Exam recall | Exam precision |
+| ---------------------------------------- | ---------- | ---------- | ---------- | ----------- | ------------ | ---------- | ----------- | -------------- |
+| Hist. gradient boosting (`kitchen_sink`) | 0.5600     | 0.0060     | 0.7811     | 0.5499      | 0.7760       | 0.5402     | 0.5546      | 0.5265         |
+| Random forest (`kitchen_sink`)           | 0.5585     | 0.0073     | 0.7844     | 0.5558      | 0.7750       | 0.5415     | 0.5780      | 0.5093         |
+| **Neural network (**`extended`**)**      | **0.5520** | **0.0077** | **0.7787** | **0.5527**  | **0.7692**   | **0.5419** | **0.5365**  | **0.5473**     |
+| Logistic regression (`baseline_eda`)     | 0.5101     | 0.0121     | 0.7443     | 0.5081      | 0.7311       | 0.5224     | 0.5320      | 0.5131         |
+
 
 The full 12-row table (every model on every input set) is in `reports/neural_network/model_comparison.csv`.
 
@@ -410,9 +444,11 @@ The full 12-row table (every model on every input set) is in `reports/neural_net
 - Not run: PyTorch or Keras, other layer shapes, other activations, other optimisers, other imbalance methods.
 - One split and one seed, as for the other models.
 
+
+
 ### 4.6 Choice
 
-We selected **histogram gradient boosting on the `kitchen_sink` inputs**, because it has the highest cross-validated PR-AUC, including after the neural network was added (Section 4.5). A secondary point is that a boosted tree model is easier to explain to a non-technical reader than a network. The two are too close on accuracy for that to be the deciding reason. Random forest on the same inputs is an equally defensible choice. The neural network is a close third on cross-validation and is not selected, but it is not clearly worse either.
+We selected **histogram gradient boosting on the** `kitchen_sink` **inputs**, because it has the highest cross-validated PR-AUC, including after the neural network was added (Section 4.5). A secondary point is that a boosted tree model is easier to explain to a non-technical reader than a network. The two are too close on accuracy for that to be the deciding reason. Random forest on the same inputs is an equally defensible choice. The neural network is a close third on cross-validation and is not selected, but it is not clearly worse either.
 
 **The repository's saved model output names a different winner.** `reports/model_findings.md` and the model figures in `reports/figures/` come from an earlier run of the same code. That run selected random forest on `kitchen_sink` (CV PR-AUC 0.5583, exam-set PR-AUC 0.5554). This report quotes a fresh run in the pinned environment of Section 8.2, which selected histogram gradient boosting (CV 0.5600, exam-set 0.5499). The difference comes from the scikit-learn version. Re-running the same code with scikit-learn 1.7.2 reproduces the committed file exactly, while version 1.9.1 (pinned in `requirements.txt`) gives the result quoted here. The model figures used here are kept in `reports/report_figures/` so they match the numbers in the text. The team has not yet decided which run to report; this report uses the fresh 1.9.1 run until it does.
 
@@ -420,7 +456,7 @@ We selected **histogram gradient boosting on the `kitchen_sink` inputs**, becaus
 
 A model outputs a probability, and a cut-off turns it into a yes/no flag. We chose the cut-off that maximised F1 (a balance of precision and recall) on the training set, which gave **0.571**. This is a compromise. A bank would set it from its own costs: what a missed defaulter costs against what an unnecessary contact costs. See Section 5.4 for a caveat on how the cut-off was set.
 
-<div class="pagebreak"></div>
+
 
 ## 5. Model Analysis
 
@@ -430,14 +466,16 @@ A model outputs a probability, and a cut-off turns it into a yes/no flag. We cho
 
 ### 5.1 Headline results
 
-| Measure | Value |
-|---|---|
-| PR-AUC | 0.5499 (a no-skill model scores about 0.221) |
-| ROC-AUC | 0.7760 |
-| Precision (flags that were right) | 52.3% |
-| Recall (defaulters found) | 55.6% |
-| F1 | 0.5391 |
-| Accuracy | 79.0% (always answering "no default" gives 77.9%) |
+
+| Measure                           | Value                                             |
+| --------------------------------- | ------------------------------------------------- |
+| PR-AUC                            | 0.5499 (a no-skill model scores about 0.221)      |
+| ROC-AUC                           | 0.7760                                            |
+| Precision (flags that were right) | 52.3%                                             |
+| Recall (defaulters found)         | 55.6%                                             |
+| F1                                | 0.5391                                            |
+| Accuracy                          | 79.0% (always answering "no default" gives 77.9%) |
+
 
 Accuracy is only 1.1 points above the always-"no" answer, which is why we rely on PR-AUC, precision and recall instead.
 
@@ -447,10 +485,12 @@ Accuracy is only 1.1 points above the always-"no" answer, which is why we rely o
 
 Of the 6,000 exam customers, 1,327 went on to default.
 
-| | Predicted no default | Predicted default |
-|---|---|---|
-| **Actually no default** | 4,000 | 673 |
-| **Actually default** | 589 | 738 |
+
+|                         | Predicted no default | Predicted default |
+| ----------------------- | -------------------- | ----------------- |
+| **Actually no default** | 4,000                | 673               |
+| **Actually default**    | 589                  | 738               |
+
 
 - The model found 738 of the 1,327 defaulters (55.6%) and missed 589.
 - It flagged 1,411 customers, of whom 738 truly defaulted (52.3%). Flagging 1,411 customers at random would catch about 312.
@@ -458,24 +498,30 @@ Of the 6,000 exam customers, 1,327 went on to default.
 
 ![Figure 5.2: Confusion matrix for the selected model on the exam set.](report_figures/model_02_confusion_matrix.png)
 
-| Class | Precision | Recall | F1 | Customers |
-|---|---|---|---|---|
-| No default | 0.872 | 0.856 | 0.864 | 4,673 |
-| Default | 0.523 | 0.556 | 0.539 | 1,327 |
+
+| Class      | Precision | Recall | F1    | Customers |
+| ---------- | --------- | ------ | ----- | --------- |
+| No default | 0.872     | 0.856  | 0.864 | 4,673     |
+| Default    | 0.523     | 0.556  | 0.539 | 1,327     |
+
+
+
 
 ### 5.3 What drives the predictions
 
 We shuffled each input in turn on the exam set and measured how much the PR-AUC fell. A bigger drop means the model leans on that input more.
 
-| Input | Drop in PR-AUC |
-|---|---|
-| `PAY_1` (latest repayment status) | 0.0756 |
-| `MONTHS_DELINQUENT` | 0.0447 |
-| `MAX_DELINQUENCY` | 0.0245 |
-| `BILL_AMT1` | 0.0134 |
-| `UTILIZATION` | 0.0108 |
-| `RECENT_LATE` | 0.0090 |
-| `PAY_AMT2` | 0.0071 |
+
+| Input                             | Drop in PR-AUC |
+| --------------------------------- | -------------- |
+| `PAY_1` (latest repayment status) | 0.0756         |
+| `MONTHS_DELINQUENT`               | 0.0447         |
+| `MAX_DELINQUENCY`                 | 0.0245         |
+| `BILL_AMT1`                       | 0.0134         |
+| `UTILIZATION`                     | 0.0108         |
+| `RECENT_LATE`                     | 0.0090         |
+| `PAY_AMT2`                        | 0.0071         |
+
 
 The first three are repayment-history inputs, and they account for most of the model's ability. This agrees with the EDA. Several inputs show a drop of zero or slightly below, meaning they add nothing the others do not already carry. Several of the inputs that drive the model are correlated with each other, so the split of credit among them should not be over-read.
 
@@ -492,16 +538,20 @@ The first three are repayment-history inputs, and they account for most of the m
 7. **Fairness.** Sex, education and marital status are excluded, but other inputs may act as stand-ins for them. Section 5.6 compares error rates by sex and education on the exam set. It is a first look only, with no confidence intervals and no test for stand-in variables, and it does not cover marital status or age.
 8. **Not a causal claim.** The model finds patterns that go with default. It does not show what causes it.
 
+
+
 ### 5.5 How much do the cap and cut-off choices matter?
 
 Two of the limits above can be measured, so we measured them. The script `src/robustness_checks.py` refits the selected model four ways and scores the same 6,000 exam customers each time. The cap limits are either fitted on all 30,000 rows (as in Section 2) or on the 24,000 training rows only. The cut-off is either taken from training-set scores (as in Section 4.7) or from 5-fold out-of-fold scores.
 
-| Variant | Cut-off | PR-AUC | Caught | Missed | False alarms | Precision | Recall |
-|---|---|---|---|---|---|---|---|
-| A. As reported: caps on all rows, cut-off from training scores | 0.571 | 0.5499 | 738 | 589 | 673 | 52.3% | 55.6% |
-| B. Caps on all rows, cut-off from out-of-fold scores | 0.574 | 0.5499 | 736 | 591 | 662 | 52.6% | 55.5% |
-| C. Caps on training rows only, cut-off from training scores | 0.556 | 0.5470 | 760 | 567 | 721 | 51.3% | 57.3% |
-| D. Caps on training rows only, cut-off from out-of-fold scores | 0.584 | 0.5470 | 718 | 609 | 640 | 52.9% | 54.1% |
+
+| Variant                                                        | Cut-off | PR-AUC | Caught | Missed | False alarms | Precision | Recall |
+| -------------------------------------------------------------- | ------- | ------ | ------ | ------ | ------------ | --------- | ------ |
+| A. As reported: caps on all rows, cut-off from training scores | 0.571   | 0.5499 | 738    | 589    | 673          | 52.3%     | 55.6%  |
+| B. Caps on all rows, cut-off from out-of-fold scores           | 0.574   | 0.5499 | 736    | 591    | 662          | 52.6%     | 55.5%  |
+| C. Caps on training rows only, cut-off from training scores    | 0.556   | 0.5470 | 760    | 567    | 721          | 51.3%     | 57.3%  |
+| D. Caps on training rows only, cut-off from out-of-fold scores | 0.584   | 0.5470 | 718    | 609    | 640          | 52.9%     | 54.1%  |
+
 
 What this shows:
 
@@ -510,18 +560,22 @@ What this shows:
 - Across the four variants, recall ranges from 54.1% to 57.3% and precision from 51.3% to 52.9%. So "about 55% found, about 52% of flags right" is a fair summary, and the exact counts (738, 673) are not stable to the last digit.
 - This is one split and one random seed. We did not repeat it across seeds.
 
+
+
 ### 5.6 Error rates by group
 
 The model never sees sex, education or marital status. That does not guarantee equal treatment, because other inputs can carry the same information. The table shows how the selected model behaved for each group on the 6,000 exam customers (variant A). The false-positive rate is the share of customers who did not default but were flagged. The false-negative rate is the share of defaulters who were missed.
 
-| Group | Customers | Actual default rate | Share flagged | False-positive rate | False-negative rate |
-|---|---|---|---|---|---|
-| Male | 2,402 | 23.4% | 25.5% | 16.2% | 44.0% |
-| Female | 3,598 | 21.3% | 22.2% | 13.2% | 44.6% |
-| Graduate school | 2,130 | 19.0% | 18.7% | 10.8% | 47.7% |
-| University | 2,774 | 23.6% | 26.0% | 16.1% | 41.9% |
-| High school | 1,014 | 25.7% | 28.2% | 18.9% | 44.8% |
-| Other education | 82 | 6.1% | 6.1% | 5.2% | 80.0% |
+
+| Group           | Customers | Actual default rate | Share flagged | False-positive rate | False-negative rate |
+| --------------- | --------- | ------------------- | ------------- | ------------------- | ------------------- |
+| Male            | 2,402     | 23.4%               | 25.5%         | 16.2%               | 44.0%               |
+| Female          | 3,598     | 21.3%               | 22.2%         | 13.2%               | 44.6%               |
+| Graduate school | 2,130     | 19.0%               | 18.7%         | 10.8%               | 47.7%               |
+| University      | 2,774     | 23.6%               | 26.0%         | 16.1%               | 41.9%               |
+| High school     | 1,014     | 25.7%               | 28.2%         | 18.9%               | 44.8%               |
+| Other education | 82        | 6.1%                | 6.1%          | 5.2%                | 80.0%               |
+
 
 - Men and women are missed at nearly the same rate (44.0% and 44.6%). Men who did not default are flagged more often (16.2% against 13.2%), in line with their higher default rate in the data (Section 3.3).
 - The false-positive rate rises from 10.8% for graduate-school customers to 18.9% for high-school customers. A customer with only high-school education who would have paid is therefore flagged about 1.7 times as often as one with a graduate degree, although education is not a model input.
@@ -536,20 +590,24 @@ The model never sees sex, education or marital status. That does not guarantee e
 
 This section looks at the best neural network (Section 4.5) on the same 6,000 exam customers, at its own cut-off of 0.302. That cut-off came from training-set out-of-fold predictions. It is lower than the tree models' cut-offs, probably because those models weight defaulters more heavily, which shifts their probabilities upward, so the numbers are not comparable across models.
 
-| | Predicted no default | Predicted default |
-|---|---|---|
-| **Actually no default** | 4,084 | 589 |
-| **Actually default** | 615 | 712 |
+
+|                         | Predicted no default | Predicted default |
+| ----------------------- | -------------------- | ----------------- |
+| **Actually no default** | 4,084                | 589               |
+| **Actually default**    | 615                  | 712               |
+
 
 ![Figure 5.4: Confusion matrix for the best neural network on the exam set.](report_figures/nn_02_confusion_matrix.png)
 
-| Measure (exam set) | Neural network | Selected model, same cut-off rule |
-|---|---|---|
-| PR-AUC | 0.5527 | 0.5499 |
-| ROC-AUC | 0.7692 | 0.7760 |
-| Recall (defaulters found) | 0.5365 (712 of 1,327) | 0.5546 |
-| Precision (flags that were right) | 0.5473 (712 of 1,301 flagged) | 0.5265 |
-| F1 | 0.5419 | 0.5402 |
+
+| Measure (exam set)                | Neural network                | Selected model, same cut-off rule |
+| --------------------------------- | ----------------------------- | --------------------------------- |
+| PR-AUC                            | 0.5527                        | 0.5499                            |
+| ROC-AUC                           | 0.7692                        | 0.7760                            |
+| Recall (defaulters found)         | 0.5365 (712 of 1,327)         | 0.5546                            |
+| Precision (flags that were right) | 0.5473 (712 of 1,301 flagged) | 0.5265                            |
+| F1                                | 0.5419                        | 0.5402                            |
+
 
 - The network flags fewer customers (1,301) than the selected model does, finds slightly fewer defaulters, and is right slightly more often when it flags. These are differences of about two points and move with the cut-off, as Section 5.5 showed for the selected model.
 - For the selected model, the right-hand column uses the cut-off from out-of-fold predictions (variant B of Section 5.5, within one or two customers of the counts shown there).
@@ -558,7 +616,7 @@ This section looks at the best neural network (Section 4.5) on the same 6,000 ex
 - Training is short and repeatable: one fit of the best network took 46 passes with early stopping, and the full script produces identical output files on repeated runs (Section 8.3). The training curves are in Appendix 8.8.
 - For a lender that must give a reason for a refusal, the extra opacity is a cost with no accuracy gain in return.
 
-<div class="pagebreak"></div>
+
 
 ## 6. Conclusion and Recommendations
 
@@ -572,6 +630,8 @@ This section looks at the best neural network (Section 4.5) on the same 6,000 ex
 4. **Simple models are not enough here, but a neural network adds nothing over trees.** Tree-based models beat logistic regression by about 0.03 to 0.05 PR-AUC. A neural network matched them within noise (exam PR-AUC 0.5527, cross-validated 0.5520 against 0.5600) without beating them, and is harder to explain.
 5. **The result has limits.** It has moderate accuracy, an unproven choice between the top two models, and a decision cut-off that is not tied to costs.
 
+
+
 ### 6.2 Recommendations
 
 1. **Use the model as a ranking tool.** Rank accounts by predicted risk and apply actions by tier, such as early outreach, payment plans, limit review and loss reserves. Do not treat the yes/no flag as a verdict on one customer.
@@ -582,7 +642,7 @@ This section looks at the best neural network (Section 4.5) on the same 6,000 ex
 6. **Tighten the method in follow-up work.** Pick the cut-off from out-of-fold predictions (Section 5.5 shows this changes the counts only slightly), compare the top models, including the neural network, fold by fold with a paired test, record library versions, and re-check performance on recent customers.
 7. **Check the repayment-code quirk with the data owner.** Knowing how status 1 and 2 were recorded would settle the main open question about the inputs.
 
-<div class="pagebreak"></div>
+
 
 ## 7. References
 
@@ -608,32 +668,38 @@ Virtanen, P., Gommers, R., Oliphant, T. E., et al. (2020). SciPy 1.0: Fundamenta
 
 Waskom, M. L. (2021). seaborn: Statistical data visualization. *Journal of Open Source Software, 6*(60), 3021.
 
-Yeh, I.-C. (2009). *Default of Credit Card Clients* [Data set]. UCI Machine Learning Repository. https://doi.org/10.24432/C55S3H
+Yeh, I.-C. (2009). *Default of Credit Card Clients* [Data set]. UCI Machine Learning Repository. [https://doi.org/10.24432/C55S3H](https://doi.org/10.24432/C55S3H)
 
 Yeh, I.-C., & Lien, C.-H. (2009). The comparisons of data mining techniques for the predictive accuracy of probability of default of credit card clients. *Expert Systems with Applications, 36*(2), 2473-2480.
 
-<div class="pagebreak"></div>
+
 
 ## 8. Appendix: Code Output and How to Reproduce
 
+
+
 ### 8.1 Repository contents
 
-| Path | Purpose |
-|---|---|
-| `src/data_cleaning.py` | Cleans the raw file, runs self-checks, writes the cleaned CSV |
-| `src/exploratory_analysis.py` | Produces the EDA tables and figures 01 to 13 |
-| `src/modeling.py` | Builds features, compares models, writes the model figures |
-| `src/neural_network.py` | Adds a scikit-learn neural network (MLP) to the model comparison. Imports the set-up from `modeling.py`, writes only to `reports/neural_network/` |
-| `src/robustness_checks.py` | Read-only checks behind Sections 5.5 and 5.6 (prints only, writes no files) |
-| `run_all.py`, `Makefile` | One command that runs every step in order without overwriting tracked files (Section 8.3) |
-| `tools/build_report.py` | Builds this PDF from the markdown source (needs `mistune` and `playwright`) |
-| `notebooks/final_analysis.ipynb` | Runs the scripts above, shows their output, and includes the neural network section |
-| `data/raw/default of credit card clients.xls` | Original UCI file |
-| `data/processed/credit_card_default_cleaned.csv` | Cleaned data (30,000 rows, 25 columns) |
-| `reports/eda_findings.md`, `reports/model_findings.md` | Full text output of the EDA and modeling steps |
-| `reports/figures/` | Figures written by the scripts. The model figures here are from an earlier run (see Section 4.6) |
-| `reports/report_figures/` | Model figures from the run quoted in this report, plus the three neural network figures (`nn_01` to `nn_03`) |
-| `reports/neural_network/` | Neural network outputs: results text, `model_comparison.csv`, `nn_search_results.csv` and three figures |
+
+| Path                                                   | Purpose                                                                                                                                           |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/data_cleaning.py`                                 | Cleans the raw file, runs self-checks, writes the cleaned CSV                                                                                     |
+| `src/exploratory_analysis.py`                          | Produces the EDA tables and figures 01 to 13                                                                                                      |
+| `src/modeling.py`                                      | Builds features, compares models, writes the model figures                                                                                        |
+| `src/neural_network.py`                                | Adds a scikit-learn neural network (MLP) to the model comparison. Imports the set-up from `modeling.py`, writes only to `reports/neural_network/` |
+| `src/robustness_checks.py`                             | Read-only checks behind Sections 5.5 and 5.6 (prints only, writes no files)                                                                       |
+| `run_all.py`, `Makefile`                               | One command that runs every step in order without overwriting tracked files (Section 8.3)                                                         |
+| `tools/build_report.py`                                | Builds this PDF from the markdown source (needs `mistune` and `playwright`)                                                                       |
+| `notebooks/final_analysis.ipynb`                       | Runs the scripts above, shows their output, and includes the neural network section                                                               |
+| `data/raw/default of credit card clients.xls`          | Original UCI file                                                                                                                                 |
+| `data/processed/credit_card_default_cleaned.csv`       | Cleaned data (30,000 rows, 25 columns)                                                                                                            |
+| `reports/eda_findings.md`, `reports/model_findings.md` | Full text output of the EDA and modeling steps                                                                                                    |
+| `reports/figures/`                                     | Figures written by the scripts. The model figures here are from an earlier run (see Section 4.6)                                                  |
+| `reports/report_figures/`                              | Model figures from the run quoted in this report, plus the three neural network figures (`nn_01` to `nn_03`)                                      |
+| `reports/neural_network/`                              | Neural network outputs: results text, `model_comparison.csv`, `nn_search_results.csv` and three figures                                           |
+
+
+
 
 ### 8.2 Environment used for the numbers in this report
 
@@ -657,7 +723,7 @@ python src/neural_network.py
 - `robustness_checks.py` takes about 15 seconds. It prints the tables in Sections 5.5 and 5.6 and writes nothing.
 - `neural_network.py` takes about 185 seconds (3 minutes) of wall-clock time on an 18-core Mac, because it cross-validates 72 network settings plus 3 oversampling trials (75 in total), with the 5 folds run in parallel. On a laptop with fewer cores expect longer. It needs the cleaned CSV and imports `modeling.py`. It writes only inside `reports/neural_network/`, and three runs gave byte-identical CSV and image files.
 
-Each script finds its files relative to its own location, so it can be run from any folder. **Running the EDA and modeling scripts overwrites** the files under `reports/` (the findings text and the figures). Copy the folder first if you want to keep the originals, or use the safe `make eda`, `make model` and `make nn` targets, which run in a temporary copy and write to `reproduced/` only. `neural_network.py` overwrites only its own files in `reports/neural_network/`. **One command for everything.** `make all` (or `python run_all.py` on a machine without `make`) runs cleaning, EDA, modeling, the neural network and the robustness checks in order, inside a temporary copy of the repository, then rebuilds this PDF if `mistune` and `playwright` are installed. The fresh outputs are copied to `reproduced/`, and a summary line per folder says how many files are identical to the committed copy. No tracked file is overwritten. In our check, the cleaned CSV, the EDA findings, 13 of 17 saved figures and every neural network file came out byte-identical, while `model_findings.md` and the four `model_*` figures differed (the known run difference in Section 4.6). The whole run took 4.5 minutes on an 18-core Mac when nothing else was running and 7.6 minutes in the last check, so expect 5 to 10 minutes.
+Each script finds its files relative to its own location, so it can be run from any folder. **Running the EDA and modeling scripts overwrites** the files under `reports/` (the findings text and the figures). Copy the folder first if you want to keep the originals, or use the safe `make eda`, `make model` and `make nn` targets, which run in a temporary copy and write to `reproduced/` only. `neural_network.py` overwrites only its own files in `reports/neural_network/`. **One command for everything.** `make all` (or `python run_all.py` on a machine without `make`) runs cleaning, EDA, modeling, the neural network and the robustness checks in order, inside a temporary copy of the repository, then rebuilds this PDF if `mistune` and `playwright` are installed. The fresh outputs are copied to `reproduced/`, and a summary line per folder says how many files are identical to the committed copy. No tracked file is overwritten. In our check, the cleaned CSV, the EDA findings, 13 of 17 saved figures and every neural network file came out byte-identical, while `model_findings.md` and the four `model_`* figures differed (the known run difference in Section 4.6). The whole run took 4.5 minutes on an 18-core Mac when nothing else was running and 7.6 minutes in the last check, so expect 5 to 10 minutes.
 
 ### 8.4 Data cleaning output
 
@@ -682,6 +748,8 @@ MARRIAGE after:   1:13659  2:15964  3:377   (54 recoded)
 
 All self-checks passed.
 ```
+
+
 
 ### 8.5 Modeling output
 
@@ -729,6 +797,8 @@ PAY_AMT2             0.0071      PAY_AMT6             0.0046
 LIMIT_BAL            0.0043      BILL_AMT6            0.0040
 ```
 
+
+
 ### 8.6 Robustness and group-error output
 
 ```
@@ -757,6 +827,8 @@ EDUCATION / High school    1014    0.257    0.282  0.189  0.448      0.503   0.5
 EDUCATION / Other            82    0.061    0.061  0.052  0.800      0.200   0.200
 ```
 
+
+
 ### 8.7 Further EDA figures
 
 The remaining figures from the EDA script are in `reports/figures/`: `08_group_comparisons.png`, `11_data_quality.png` and `13_raw_comparison.png`.
@@ -784,4 +856,3 @@ Training curves for the chosen network (46 passes run; the dashed line marks the
 ### 8.9 Executed notebook (code and output)
 
 The course asks for the output of the code from a Jupyter notebook. The PDF version of this report ends with the executed notebook `notebooks/final_analysis.ipynb`: each code cell followed by what it printed. Its numbers come from running the scripts above. Pictures are left out of this PDF copy (each is marked in the text below). They are in the notebook file, and most are the same figures shown in Sections 3 to 5. If the PDF is rebuilt on a machine without `nbconvert`, this part is skipped and the notebook file itself is the appendix.
-

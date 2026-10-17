@@ -33,16 +33,18 @@ Use another interpreter with `make all PYTHON=/path/to/python`.
 
 Single steps with make. Each one runs in the same temporary copy as `make all`, so no tracked file is overwritten:
 
-| Target | Runs | Writes |
-|---|---|---|
-| `make all` | all five steps (same as `make reproduce`) | `reproduced/` only |
-| `make reproduce` | all five steps | `reproduced/` only |
-| `make clean-data` | `src/data_cleaning.py` | `reproduced/data/processed/` only |
-| `make eda` | `src/exploratory_analysis.py` | `reproduced/reports/` (findings, figures) only |
-| `make model` | `src/modeling.py` | `reproduced/reports/` (findings, figures) only |
-| `make nn` | `src/neural_network.py` | `reproduced/reports/neural_network/` only |
-| `make robustness` | `src/robustness_checks.py` | prints only (log in `reproduced/logs/`) |
-| `make report` | `tools/build_report.py` | `reports/Final-Project-Report-Team-10.pdf` (skips with exit code 0 if mistune/playwright are missing) |
+
+| Target            | Runs                                      | Writes                                                                                                |
+| ----------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `make all`        | all five steps (same as `make reproduce`) | `reproduced/` only                                                                                    |
+| `make reproduce`  | all five steps                            | `reproduced/` only                                                                                    |
+| `make clean-data` | `src/data_cleaning.py`                    | `reproduced/data/processed/` only                                                                     |
+| `make eda`        | `src/exploratory_analysis.py`             | `reproduced/reports/` (findings, figures) only                                                        |
+| `make model`      | `src/modeling.py`                         | `reproduced/reports/` (findings, figures) only                                                        |
+| `make nn`         | `src/neural_network.py`                   | `reproduced/reports/neural_network/` only                                                             |
+| `make robustness` | `src/robustness_checks.py`                | prints only (log in `reproduced/logs/`)                                                               |
+| `make report`     | `tools/build_report.py`                   | `reports/Final-Project-Report-Team-10.pdf` (skips with exit code 0 if mistune/playwright are missing) |
+
 
 Each single step uses the files already in the repository (for example the committed cleaned CSV) as its input, not the output of an earlier step. `python run_all.py --only nn` does the same without make.
 
@@ -69,12 +71,14 @@ Defaults are the minority class (22.1%), so the main score is PR-AUC (precision-
 
 ## Partner(s)/Contributor(s)
 
-| Member | Work | Report section |
-|---|---|---|
-| Prasad Pidaparty | Assigned the Introduction. The report's Section 1 was compiled by the team from the status form and dataset documentation. | Introduction |
-| Siddhant Bhura | Data cleaning (`src/data_cleaning.py`); neural network (`src/neural_network.py`); robustness checks; one-command run; report assembly | Data Cleaning and Preparation; neural network parts of Model Selection and Analysis |
-| Eshwar Reddy M | Exploratory analysis (`src/exploratory_analysis.py`), presentation content | Exploratory Data Analysis |
-| Umesh Sharma | Modeling (`src/modeling.py`), GitHub coordination | Model Selection, Model Analysis |
+
+| Member           | Work                                                                                                                                  | Report section                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Prasad Pidaparty | Assigned the Introduction. The report's Section 1 was compiled by the team from the status form and dataset documentation.            | Introduction                                                                        |
+| Siddhant Bhura   | Data cleaning (`src/data_cleaning.py`); neural network (`src/neural_network.py`); robustness checks; one-command run; report assembly | Data Cleaning and Preparation; neural network parts of Model Selection and Analysis |
+| Eshwar Reddy M   | Exploratory analysis (`src/exploratory_analysis.py`), presentation content                                                            | Exploratory Data Analysis                                                           |
+| Umesh Sharma     | Modeling (`src/modeling.py`), GitHub coordination                                                                                     | Model Selection, Model Analysis                                                     |
+
 
 No outside partner.
 
@@ -88,44 +92,52 @@ No outside partner.
 - Model evaluation on imbalanced data (PR-AUC, threshold choice, permutation importance)
 - Ethics for AI (group error-rate comparison, discussion of protected attributes and explainability in credit scoring)
 
+
+
 ## Technologies
 
 Python, pandas, NumPy, scikit-learn, SciPy, statsmodels, Matplotlib, seaborn, Jupyter (notebook only). The report PDF is built with mistune and Playwright (optional, see `requirements-pdf.txt`). Exact versions are in `requirements.txt`.
 
 ## Project Description
 
-**Data source.** UCI Machine Learning Repository, "Default of Credit Card Clients" (Yeh, 2009), https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients. A Taiwanese bank, April to September 2005. The raw file is in `data/raw/`.
+**Data source.** UCI Machine Learning Repository, "Default of Credit Card Clients" (Yeh, 2009), [https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients](https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients). A Taiwanese bank, April to September 2005. The raw file is in `data/raw/`.
 
 **Size.** 30,000 customers, 25 columns in the raw file (an `ID`, 23 input columns, and the outcome). 6,636 customers (22.12%) defaulted.
 
 **Data dictionary.**
 
-| Column(s) | Meaning |
-|---|---|
-| `ID` | Row identifier |
-| `LIMIT_BAL` | Credit limit, New Taiwan dollars |
-| `SEX` | 1 male, 2 female |
-| `EDUCATION` | 1 graduate school, 2 university, 3 high school, 4 other (undocumented codes 0, 5, 6 are regrouped into 4 by the cleaning step) |
-| `MARRIAGE` | 1 married, 2 single, 3 other (undocumented code 0 is regrouped into 3) |
-| `AGE` | Age in years |
-| `PAY_1` to `PAY_6` | Repayment status for September back to April 2005. -2 and 0 are not described in the documentation; 1 is one month late, 2 two months late, and so on. The raw file calls the first one `PAY_0`; the cleaning step renames it. |
-| `BILL_AMT1` to `BILL_AMT6` | Bill amount for each of the same months |
-| `PAY_AMT1` to `PAY_AMT6` | Amount paid in each of the same months |
-| `default payment next month` | Outcome: 1 defaulted in October 2005, 0 did not |
+
+| Column(s)                    | Meaning                                                                                                                                                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ID`                         | Row identifier                                                                                                                                                                                                                 |
+| `LIMIT_BAL`                  | Credit limit, New Taiwan dollars                                                                                                                                                                                               |
+| `SEX`                        | 1 male, 2 female                                                                                                                                                                                                               |
+| `EDUCATION`                  | 1 graduate school, 2 university, 3 high school, 4 other (undocumented codes 0, 5, 6 are regrouped into 4 by the cleaning step)                                                                                                 |
+| `MARRIAGE`                   | 1 married, 2 single, 3 other (undocumented code 0 is regrouped into 3)                                                                                                                                                         |
+| `AGE`                        | Age in years                                                                                                                                                                                                                   |
+| `PAY_1` to `PAY_6`           | Repayment status for September back to April 2005. -2 and 0 are not described in the documentation; 1 is one month late, 2 two months late, and so on. The raw file calls the first one `PAY_0`; the cleaning step renames it. |
+| `BILL_AMT1` to `BILL_AMT6`   | Bill amount for each of the same months                                                                                                                                                                                        |
+| `PAY_AMT1` to `PAY_AMT6`     | Amount paid in each of the same months                                                                                                                                                                                         |
+| `default payment next month` | Outcome: 1 defaulted in October 2005, 0 did not                                                                                                                                                                                |
+
 
 **Questions and hypotheses.** Does repayment history predict default better than who the customer is? Do tree models beat logistic regression because the relationships are not straight lines? Does a neural network beat the tree models? Does the chosen model treat groups differently even though it never sees sex, education or marital status?
 
 **Analysis and modeling.**
+
 1. Cleaning: no missing values or repeated IDs. 32,425 extreme money values were capped (no rows dropped) and 399 undocumented education and marriage codes were regrouped.
 2. EDA: repayment history is the strongest signal. Customers one or more months late on the latest payment defaulted at 50.29%, against 13.83% for current customers. Demographics have small effects.
 3. Modeling: three input sets and four model families compared by 5-fold cross-validated PR-AUC on 24,000 training customers, then scored once on 6,000 held-back customers. The two tree models and the neural network are within noise of each other and all beat logistic regression.
 4. Robustness and fairness: refitting the caps on training rows only, taking the cut-off from out-of-fold predictions, and error rates by sex and education.
 
 **Roadblocks.**
+
 - The raw Excel file has a placeholder first header row.
 - The six repayment-status columns are not recorded the same way (status 1 appears 3,688 times in the latest month and almost never in the earlier five), so month-to-month trend features were avoided.
 - PyTorch and Keras are not installed in the project environment, so the neural network is a scikit-learn MLP.
 - A fresh run of `src/modeling.py` selected histogram gradient boosting, while the committed `reports/model_findings.md` (an earlier run) selected random forest. The cause is the scikit-learn version: 1.7.2 reproduces the committed file exactly, while `requirements.txt` pins 1.9.1.
+
+
 
 ## Results
 
@@ -137,12 +149,14 @@ Full write-up: `reports/Final-Project-Report-Team-10.pdf` (source `reports/Final
 
 Best version of each model (highest cross-validated PR-AUC across the three input sets). The cut-off for F1, recall and precision comes from out-of-fold predictions for every row, so the rows compare fairly. Source: `reports/neural_network/model_comparison.csv`.
 
-| Model (input set) | CV PR-AUC | CV std | Test PR-AUC | Test ROC-AUC | Test F1 | Test recall | Test precision |
-|---|---|---|---|---|---|---|---|
-| Hist. gradient boosting (kitchen_sink) | 0.5600 | 0.0060 | 0.5499 | 0.7760 | 0.5402 | 0.5546 | 0.5265 |
-| Random forest (kitchen_sink) | 0.5585 | 0.0073 | 0.5558 | 0.7750 | 0.5415 | 0.5780 | 0.5093 |
-| Neural network (extended) | 0.5520 | 0.0077 | 0.5527 | 0.7692 | 0.5419 | 0.5365 | 0.5473 |
-| Logistic regression (baseline_eda) | 0.5101 | 0.0121 | 0.5081 | 0.7311 | 0.5224 | 0.5320 | 0.5131 |
+
+| Model (input set)                      | CV PR-AUC | CV std | Test PR-AUC | Test ROC-AUC | Test F1 | Test recall | Test precision |
+| -------------------------------------- | --------- | ------ | ----------- | ------------ | ------- | ----------- | -------------- |
+| Hist. gradient boosting (kitchen_sink) | 0.5600    | 0.0060 | 0.5499      | 0.7760       | 0.5402  | 0.5546      | 0.5265         |
+| Random forest (kitchen_sink)           | 0.5585    | 0.0073 | 0.5558      | 0.7750       | 0.5415  | 0.5780      | 0.5093         |
+| Neural network (extended)              | 0.5520    | 0.0077 | 0.5527      | 0.7692       | 0.5419  | 0.5365      | 0.5473         |
+| Logistic regression (baseline_eda)     | 0.5101    | 0.0121 | 0.5081      | 0.7311       | 0.5224  | 0.5320      | 0.5131         |
+
 
 The first three rows are within one fold-to-fold spread (0.006 to 0.008), so we call them a tie. No-skill PR-AUC is the default rate, about 0.22.
 
@@ -181,6 +195,8 @@ final-project/
 └── reproduced/                         (created by make all; ignored by git)
 ```
 
+
+
 ## Deliverables and status
 
 - [x] Final report: `reports/Final-Project-Report-Team-10.pdf`. Open items: the team confirms the Introduction text and which model run is quoted.
@@ -197,5 +213,6 @@ MIT License for the code (see `LICENSE`). The dataset is from the UCI Machine Le
 
 ## Acknowledgments
 
-- Dataset: Yeh, I. C. (2009), UCI Machine Learning Repository, https://doi.org/10.24432/C55S3H. Original study: Yeh, I. C., and Lien, C. H. (2009). The comparisons of data mining techniques for the predictive accuracy of probability of default of credit card clients. Expert Systems with Applications, 36(2), 2473-2480.
-- **AI tool disclosure.** Siddhant Bhura used Claude Code (Anthropic) to help write and test `src/neural_network.py`, `src/robustness_checks.py`, `run_all.py`, `Makefile` and `tools/build_report.py`, to help revise `src/data_cleaning.py` and the notebook, and to help draft and edit parts of the report, this README and the video outline. Every script was run and every reported number was checked against the saved outputs. Teammates should add their own line for any AI tool used on `src/exploratory_analysis.py`, `src/modeling.py` or their report sections.
+- Dataset: Yeh, I. C. (2009), UCI Machine Learning Repository, [https://doi.org/10.24432/C55S3H](https://doi.org/10.24432/C55S3H). Original study: Yeh, I. C., and Lien, C. H. (2009). The comparisons of data mining techniques for the predictive accuracy of probability of default of credit card clients. Expert Systems with Applications, 36(2), 2473-2480.
+- **AI tool disclosure.** Different team members used a mix of AI Code Assistants to save time and produce better code quality of the Solution. e.g ClaudeCode, GitHiub CoPilot etc.
+
