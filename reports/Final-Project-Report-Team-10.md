@@ -179,7 +179,7 @@ The last run finished with "All self-checks passed".
 
 ### 3.2 Money amounts are skewed
 
-Every money variable has a long tail to the right, with the mean above the median. The median credit limit is NT$140,000 against a mean of NT$167,484. The EDA therefore reports medians and uses rank-based tests where possible. (These histograms use the cleaned file with outliers preserved. The credit-utilization panel's "median 0" label is a rounding of the true median, about 0.31.)
+Every money variable has a long tail to the right, with the mean above the median. The median credit limit is NT$140,000 against a mean of NT$167,484. The EDA therefore reports medians and uses rank-based tests where possible. (These histograms use the cleaned file with outliers preserved.)
 
 ![Figure 3.2: Distribution of the main financial variables after cleaning.](figures/02_distributions.png)
 
@@ -234,25 +234,25 @@ Comparing the latest payment (`PAY_AMT1`) with the previous bill (`BILL_AMT2`) g
 
 | Share of bill repaid | Customers | Default rate |
 | -------------------- | --------- | ------------ |
-| Nothing              | 2,325     | 51.78%       |
-| Token (under 20%)    | 15,803    | 21.12%       |
-| Partial (20% to 99%) | 3,199     | 15.75%       |
-| In full              | 5,498     | 15.39%       |
+| Nothing              | 2,327     | 51.78%       |
+| Token (under 20%)    | 15,249    | 21.58%       |
+| Partial (20% to 99%) | 2,419     | 18.48%       |
+| In full              | 6,830     | 13.89%       |
 
 
-Paying nothing is the riskiest group in each of the three months tested (51.78%, 49.24% and 45.64%). The order of the other groups is not stable: partial payers default slightly more than full payers in the most recent month and slightly less in the other two. This measure uses amounts, so the status-code quirk does not affect it.
+Paying nothing is the riskiest group in each of the three months tested, and the ordering across all four bands is strictly monotonic in every one of them, so this is a stable behavioural signal rather than a one-month artefact. Customers who paid nothing default 3.7 times as often as those who cleared the balance (51.78% against 13.89%). This measure uses amounts, so the status-code quirk does not affect it.
 
 ![Figure 3.6: Default rate by share of the bill repaid (left), repeated for three months (right).](figures/06_payment_behaviour.png)
 
-Timing matters too. Customers late only in the two most recent months default at 41.64%. Customers late only in the two oldest months default at 25.97%. Customers late in both windows default at 65.58%, the highest of any group. Recent trouble therefore carries roughly 1.6 times the risk of old trouble. (The right-hand panel's title says lateness is equally common each month. The plotted line actually rises from about 10% in April to about 23% in September, so read the title with care.)
+Timing matters too. Customers late only in the two most recent months default at 41.64%. Customers late only in the two oldest months default at 25.97%. Customers late in both windows default at 65.58%, the highest of any group. Recent trouble therefore carries roughly 1.6 times the risk of old trouble. The right-hand panel shows why: the share of customers late climbs from 10.3% in April to 22.7% in September, while the default rate among those late customers stays flat between 50% and 56%. Lateness becomes more common closer to the prediction month, but its cost per late customer does not change.
 
 ![Figure 3.7: Default rate by timing of lateness (left) and monthly lateness versus default rate among late customers (right).](figures/07_temporal_dynamics.png)
 
 ### 3.7 Credit limit, utilization and relationships between columns
 
 - Customers who defaulted had a median credit limit of NT$90,000, against NT$150,000 for those who did not (Cohen's d = -0.38, the clearest gap among the continuous variables). Age shows a negligible gap (d = 0.03).
-- Default rises with credit utilization (bill divided by limit), from a low of 14.80% (the fourth-lowest tenth of customers) to 28.73% in the highest tenth.
-- The six bill columns are highly correlated with each other (0.79 to 0.95). Variance inflation factors range from about 9 to 16 across them, so a linear model would give unstable weights. Credit limit and age have values near 1.
+- Default rises with credit utilization (bill divided by limit), from a low of 14.83% (the fourth-lowest tenth of customers) to 28.63% in the highest tenth.
+- The six bill columns are highly correlated with each other (0.80 to 0.95). Variance inflation factors range from about 9 to 16 across them, so a linear model would give unstable weights. Credit limit and age have values near 1.
 
 ![Figure 3.8: Correlations between the main variables (left) and default rate by utilization decile (right).](figures/09_relationships.png)
 

@@ -233,8 +233,11 @@ def section_2_distributions(df: pd.DataFrame) -> None:
         if column == "UTILIZATION":
             data = data.clip(-0.5, 2.0)
         ax.hist(data, bins=50, color="#4C72B0", edgecolor="white", linewidth=0.3)
+        # UTILIZATION is a ratio near 0.3; ",.0f" would render its median as "0".
+        median_text = (f"median {data.median():,.2f}" if column == "UTILIZATION"
+                       else f"median {data.median():,.0f}")
         ax.axvline(data.median(), color="#C44E52", linestyle="--", linewidth=1.2,
-                   label=f"median {data.median():,.0f}")
+                   label=median_text)
         ax.set_xlabel(label)
         ax.set_ylabel("Clients")
         ax.legend(fontsize=7)
@@ -861,7 +864,7 @@ def section_7_temporal_dynamics(df: pd.DataFrame) -> None:
     axes[1].set_xticks(range(1, 7))
     axes[1].set_xticklabels(["Apr", "May", "Jun", "Jul", "Aug", "Sep"])
     axes[1].set_ylabel("Percent")
-    axes[1].set_title("Lateness is equally common each month, not equally costly")
+    axes[1].set_title("Lateness grows toward September; its cost stays flat")
     axes[1].legend(fontsize=8)
     fig.suptitle("When the delinquency happened matters", fontsize=12)
     fig.tight_layout()
