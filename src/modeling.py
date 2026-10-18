@@ -724,11 +724,10 @@ def write_limitations_and_recommendations(artifacts: dict) -> None:
     record("## 7. Limitations")
     record()
     record(
-        "1. **Preprocessing leakage from cleaning.** IQR winsorization in "
-        "`data_cleaning.py` was fit on all 30,000 rows. The model split "
-        "happens after that, so test rows have already influenced the "
-        "capped bounds. A production pipeline should fit caps inside the "
-        "training fold only."
+        "1. **Skewed financial tails are kept as-is.** Cleaning no longer "
+        "winsorizes credit limits, bills or payments. Tree models handle "
+        "that skew naturally; a linear model may still want log1p or robust "
+        "scaling fitted inside the training fold only."
     )
     record(
         "2. **Threshold is not cost-aware.** The cutoff maximises F1 on the "

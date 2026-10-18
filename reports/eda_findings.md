@@ -16,17 +16,17 @@ Sections 1 to 11 analyse the cleaned file, which is what the modeling step will 
 ## 2. Distribution of the financial variables
 
 ```
-                   mean     median         std  skewness
-variable                                                
-LIMIT_BAL    166967.489  140000.00  128013.394     0.904
-AGE              35.486      34.00       9.218     0.732
-BILL_AMT1     44293.450   22381.50   51294.801     1.194
-PAY_AMT1       3496.731    2100.00    3492.743     1.032
-UTILIZATION       0.403       0.31       0.392     0.892
+                   mean      median         std  skewness
+variable                                                 
+LIMIT_BAL    167484.323  140000.000  129747.662     0.993
+AGE              35.486      34.000       9.218     0.732
+BILL_AMT1     51223.331   22381.500   73635.861     2.664
+PAY_AMT1       5663.580    2100.000   16563.280    14.668
+UTILIZATION       0.424       0.314       0.411     0.819
 ```
 
 - Every financial variable is right-skewed, with the mean above the median in each case. Summary statistics for this dataset should be reported as medians and interquartile ranges, not means and standard deviations.
-- Credit limit has a median of 140,000 NT$ against a mean of 166,967 NT$.
+- Credit limit has a median of 140,000 NT$ against a mean of 167,484 NT$.
 
 ## 3. Demographics and default: chi-square tests of independence
 
@@ -164,13 +164,13 @@ The repayment-status columns say whether a client was late. They do not say how 
 Most recent month (PAY_AMT1 against BILL_AMT2):
 ```
                       n  default_rate
-Paid nothing       2325         51.78
-Token (<20%)      15803         21.12
-Partial (20-99%)   3199         15.75
-Paid in full       5498         15.39
+Paid nothing       2327         51.78
+Token (<20%)      15249         21.58
+Partial (20-99%)   2419         18.48
+Paid in full       6830         13.89
 ```
 
-- Clients who paid nothing against an outstanding bill default at 51.78%. Clients who cleared the balance default at 15.39%, a 3.4-fold difference.
+- Clients who paid nothing against an outstanding bill default at 51.78%. Clients who cleared the balance default at 13.89%, a 3.7-fold difference.
 - The ordering is strictly monotonic across all four bands and holds in each of the three months tested, so this is a stable behavioural signal rather than a one-month artefact.
 - This is worth engineering as a feature. It is independent of the status scale discussed in Section 5, being computed from amounts rather than from the status codes, so it is unaffected by that inconsistency.
 
@@ -211,11 +211,11 @@ Welch's t-test does not assume equal variances, which matters here because the d
 ```
              median_default  median_current        t  p_welch   p_mwu  cohens_d
 variable                                                                       
-LIMIT_BAL         90000.000     150000.0000 -29.0042   0.0000  0.0000   -0.3765
-AGE                  34.000         34.0000   2.3195   0.0204  0.3725    0.0335
-UTILIZATION           0.464          0.2679  15.3908   0.0000  0.0000    0.2176
-PAY_AMT1           1636.000       2459.5000 -27.4280   0.0000  0.0000   -0.3492
-BILL_AMT1         20185.000      23119.5000  -5.1572   0.0000  0.0000   -0.0700
+LIMIT_BAL        90000.0000     150000.0000 -28.9516   0.0000  0.0000   -0.3743
+AGE                 34.0000         34.0000   2.3195   0.0204  0.3725    0.0335
+UTILIZATION          0.4929          0.2675  14.8304   0.0000  0.0000    0.2084
+PAY_AMT1          1636.0000       2459.5000 -17.5125   0.0000  0.0000   -0.1762
+BILL_AMT1        20185.0000      23119.5000  -3.3978   0.0007  0.0000   -0.0473
 ```
 
 - Credit limit shows the clearest separation. Clients who defaulted had a median limit of 90,000 NT$ against 150,000 NT$ for those who did not.
@@ -233,15 +233,15 @@ PAY_3                0.195
 PAY_4                0.174
 PAY_5                0.159
 PAY_6                0.143
-UTILIZATION          0.076
+UTILIZATION          0.073
 ...
 PAY_AMT3    -0.139
-PAY_AMT2    -0.150
+PAY_AMT2    -0.151
 PAY_AMT1    -0.160
 LIMIT_BAL   -0.170
 ```
 
-- The six bill columns correlate with each other between 0.79 and 0.95. They carry almost the same information six times over, so feeding all six into a regression will produce unstable coefficients. One bill column, or a summary such as utilization, is enough.
+- The six bill columns correlate with each other between 0.80 and 0.95. They carry almost the same information six times over, so feeding all six into a regression will produce unstable coefficients. One bill column, or a summary such as utilization, is enough.
 - The repayment-status columns are the only block with a meaningful correlation to the target, and PAY_1 leads them.
 
 Variance inflation factors, the formal version of that point:
@@ -250,29 +250,29 @@ Variance inflation factors, the formal version of that point:
 variable       
 LIMIT_BAL   1.1
 AGE         1.0
-BILL_AMT1   9.7
-BILL_AMT2  15.5
-BILL_AMT3  13.7
-BILL_AMT4  13.1
-BILL_AMT5  14.1
-BILL_AMT6   9.0
+BILL_AMT1  10.7
+BILL_AMT2  16.0
+BILL_AMT3  10.8
+BILL_AMT4  13.3
+BILL_AMT5  15.7
+BILL_AMT6   9.7
 ```
-- A VIF above 5 is the usual warning line and above 10 the usual red line. Every bill column clears 10 except two, peaking at 15.5, while LIMIT_BAL and AGE sit near 1. The problem is confined entirely to the bill block.
+- A VIF above 5 is the usual warning line and above 10 the usual red line. Every bill column clears 10 except two, peaking at 16.0, while LIMIT_BAL and AGE sit near 1. The problem is confined entirely to the bill block.
 
 Default rate by credit utilization decile:
 ```
                       n  default_rate
 UTILIZATION                          
 (-0.001, 0.00124]  3000         24.07
-(0.00124, 0.0113]  3000         19.57
-(0.0113, 0.0406]   3000         15.77
-(0.0406, 0.131]    3000         14.80
-(0.131, 0.31]      3000         17.80
-(0.31, 0.481]      3000         21.37
-(0.481, 0.668]     3000         25.37
-(0.668, 0.849]     3000         28.50
-(0.849, 0.968]     3000         25.23
-(0.968, 2.0]       3000         28.73
+(0.00124, 0.0113]  3002         19.55
+(0.0113, 0.0405]   2998         15.74
+(0.0405, 0.131]    3000         14.83
+(0.131, 0.314]     3000         17.83
+(0.314, 0.524]     3000         22.43
+(0.524, 0.736]     3000         26.40
+(0.736, 0.902]     3000         27.90
+(0.902, 0.982]     3000         23.80
+(0.982, 2.0]       3000         28.63
 ```
 - Default rate climbs steadily with utilization. Clients using most of their available credit default far more often than clients using little of it, and the pattern holds across the whole range.
 
@@ -289,15 +289,15 @@ PAY_1              0.6897      0.1897  higher = riskier
 PAY_2              0.6386      0.1386  higher = riskier
 PAY_3              0.6243      0.1243  higher = riskier
 LIMIT_BAL          0.3822      0.1178   lower = riskier
-PAY_AMT1           0.3891      0.1109   lower = riskier
+PAY_AMT1           0.3887      0.1113   lower = riskier
 PAY_4              0.6097      0.1097  higher = riskier
 PAY_5              0.5995      0.0995  higher = riskier
-PAID_SHARE         0.4070      0.0930   lower = riskier
+PAID_SHARE         0.4015      0.0985   lower = riskier
 PAY_6              0.5902      0.0902  higher = riskier
-UTILIZATION        0.5529      0.0529  higher = riskier
+UTILIZATION        0.5507      0.0507  higher = riskier
 EDUCATION          0.5278      0.0278  higher = riskier
 SEX                0.4765      0.0235   lower = riskier
-BILL_AMT1          0.4822      0.0178   lower = riskier
+BILL_AMT1          0.4824      0.0176   lower = riskier
 MARRIAGE           0.4827      0.0173   lower = riskier
 AGE                0.5036      0.0036  higher = riskier
 ```
@@ -333,41 +333,39 @@ Every operation in data_cleaning.py is checked against the raw file below. The p
 | Missing values | PASS | 0 missing in raw, 0 in cleaned. None existed and none were introduced. |
 | Duplicates | PASS | 0 full-row duplicates and 0 duplicate IDs in the raw file, so nothing was dropped and nothing should have been. |
 | Row count, order and target | PASS | All 30,000 rows kept in the same order, IDs aligned, and the target column untouched. |
-| Ordinal and categorical columns left uncapped | PASS | AGE, SEX and the six repayment-status columns are unchanged. Winsorizing an ordinal scale would have been a real error and it was avoided. |
+| Financial amounts and ordinal columns preserved | PASS | AGE, SEX, the six repayment-status columns and all 13 financial amount columns are unchanged. Extremes are kept; there is no winsorization step. |
 | EDUCATION recoded | PASS | Codes 0, 5 and 6 are undocumented in the UCI dictionary. All 345 such rows were folded into category 4 (other), which grew from 123 to 468. |
 | MARRIAGE recoded | PASS | Code 0 is undocumented. All 54 such rows were folded into category 3 (other), which grew from 323 to 377. |
-| Outlier winsorization | CONCERN | Capping at the 1.5 x IQR fence altered 10,269 rows (34.2%). Discussed in detail below. |
 | Undocumented repayment codes | CONCERN | The UCI dictionary documents -1 and 1 to 9 for PAY_n, but the data also contains -2 and 0 across 120,334 cells. These were left in place while the equivalent undocumented codes in EDUCATION and MARRIAGE were recoded. The treatment should be consistent, or the difference should be explained. |
-| Capping bounds fitted on the full dataset | CONCERN | The IQR fences are computed from all 30,000 rows. If the modeling step later splits this file into train and test, the test rows have already influenced the preprocessing. Bounds should be fitted on training data only and applied to the test set. |
 
-**8 of 11 checks pass.** The mechanical work is sound: no data lost, nothing miscoded, the ordinal columns correctly protected, and the two real traps in this dataset (the double header and the PAY_0 naming) both handled. The three concerns are judgement calls rather than bugs.
+**8 of 9 checks pass.** The mechanical work is sound: no data lost, financial tails preserved, nothing miscoded beyond the deliberate EDUCATION/MARRIAGE recodes, and the two real traps in this dataset (the double header and the PAY_0 naming) both handled. The remaining concern is a judgement call rather than a bug.
 
-### 12.1 What winsorization actually did
+### 12.1 Outliers are preserved: what the tails look like
+
+Cleaning no longer winsorizes money columns. The table below confirms raw and cleaned maxima and skewness match, and counts how many cells sit outside Tukey's 1.5 x IQR fences (reported only).
 
 ```
-           raw_max  cleaned_max  rows_altered   pct  skew_raw  skew_clean
-column                                                                   
-LIMIT_BAL  1000000       525000           167  0.56      0.99        0.90
-BILL_AMT1   964511       162389          2400  8.00      2.66        1.19
-BILL_AMT2   983931       155538          2395  7.98      2.71        1.19
-BILL_AMT3  1664089       146412          2469  8.23      3.09        1.18
-BILL_AMT4   891586       132775          2622  8.74      2.82        1.18
-BILL_AMT5   927171       122832          2725  9.08      2.88        1.18
-BILL_AMT6   961664       121112          2693  8.98      2.85        1.20
-PAY_AMT1    873552        11015          2745  9.15     14.67        1.03
-PAY_AMT2   1684259        11250          2714  9.05     30.45        1.11
-PAY_AMT3    896040        10678          2598  8.66     17.22        1.20
-PAY_AMT4    621000         9589          2994  9.98     12.90        1.18
-PAY_AMT5    426529         9700          2945  9.82     11.13        1.18
-PAY_AMT6    528666         9823          2958  9.86     10.64        1.21
+           raw_max  cleaned_max  iqr_tail_n  pct_tail  skew_raw  skew_clean
+column                                                                     
+LIMIT_BAL  1000000      1000000         167      0.56      0.99        0.99
+BILL_AMT1   964511       964511        2400      8.00      2.66        2.66
+BILL_AMT2   983931       983931        2395      7.98      2.71        2.71
+BILL_AMT3  1664089      1664089        2469      8.23      3.09        3.09
+BILL_AMT4   891586       891586        2622      8.74      2.82        2.82
+BILL_AMT5   927171       927171        2725      9.08      2.88        2.88
+BILL_AMT6   961664       961664        2693      8.98      2.85        2.85
+PAY_AMT1    873552       873552        2745      9.15     14.67       14.67
+PAY_AMT2   1684259      1684259        2714      9.05     30.45       30.45
+PAY_AMT3    896040       896040        2598      8.66     17.22       17.22
+PAY_AMT4    621000       621000        2994      9.98     12.90       12.90
+PAY_AMT5    426529       426529        2945      9.82     11.13       11.13
+PAY_AMT6    528666       528666        2958      9.86     10.64       10.64
 ```
 
-- 10,269 rows (34.2%) were altered. Capped rows default at 14.91% against 25.87% for untouched rows, so the capped group is the more creditworthy one.
-- Skewness falls sharply. PAY_AMT1 goes from 14.67 to 1.03. A skew near 15 would give a handful of clients enormous leverage over a linear model, so this is a real benefit for logistic regression.
-- Rank correlation with the target is essentially unchanged: the largest shift across these six variables is 0.0006. Capping is monotonic, so the ordering of clients is preserved and only the spacing is compressed.
-- The genuine cost is ties. Roughly nine per cent of clients now sit at exactly 11,015 NT$ for PAY_AMT1, so a client who repaid 20,000 NT$ and one who repaid 800,000 NT$ are no longer distinguishable. Any question about the top of the payment distribution cannot be answered from the cleaned file.
-
-**Verdict.** The capping is defensible for a linear model and would be the wrong default for a tree-based one, which handles skew natively and would rather keep the ordering. My recommendation is to keep the cleaned file as the primary input, add a log1p-transformed variant of the payment and bill columns as an alternative, and let the model comparison decide. The bounds should also be refitted inside the training split rather than on all 30,000 rows.
+- Raw and cleaned maxima match for every financial column: yes.
+- Raw and cleaned skewness match for every financial column: yes.
+- Across the 13 financial columns, 32,425 cell values sit outside Tukey's fences. They remain at their original amounts so high-limit and high-payment clients stay distinguishable.
+- Keeping the tails favours tree models and any analysis of over-limit utilisation. Linear models may still want a log1p transform or robust scaling at training time; that is a modeling choice, not a cleaning one.
 
 ## 13. The same analysis on the raw data
 
@@ -386,22 +384,22 @@ cleaned  30000        0.2212        0.1383     0.5029   3.64      140000.0
 Spearman correlation with the target, raw against cleaned:
 ```
                 raw  cleaned  difference
-PAY_1        0.2922   0.2922      0.0000
-PAY_2        0.2169   0.2169      0.0000
-PAY_3        0.1948   0.1948      0.0000
-LIMIT_BAL   -0.1696  -0.1696      0.0000
-PAY_AMT1    -0.1605  -0.1599      0.0006
-BILL_AMT1   -0.0253  -0.0256     -0.0003
-AGE          0.0051   0.0051      0.0000
-UTILIZATION  0.0730   0.0761      0.0031
+PAY_1        0.2922   0.2922         0.0
+PAY_2        0.2169   0.2169         0.0
+PAY_3        0.1948   0.1948         0.0
+LIMIT_BAL   -0.1696  -0.1696         0.0
+PAY_AMT1    -0.1605  -0.1605         0.0
+BILL_AMT1   -0.0253  -0.0253         0.0
+AGE          0.0051   0.0051         0.0
+UTILIZATION  0.0730   0.0730         0.0
 ```
-- The largest disagreement is 0.0031. Every ranking of variable importance is the same on both files.
+- The largest disagreement is 0.0000. Every ranking of variable importance is the same on both files.
 
-### 13.1 What only the raw file can tell us
+### 13.1 Extreme amounts now survive into the cleaned file
 
-- 2,115 clients (7.0%) carry a balance above their credit limit, reaching 6.5 times the limit at the extreme. These are the clients a lender would most want flagged, and the cleaned file cannot show them because both the bill and the limit have been capped.
+- 2,115 clients (7.0%) carry a balance above their credit limit, reaching 6.5 times the limit at the extreme. The cleaned file shows the same count (2,115) because financial amounts are no longer capped.
 - 590 clients have a negative balance, meaning they are in credit with the bank. That is a real state, not an error.
-- Clients over their limit default at 30.07% against 21.58% for clients within their limit. That gap is visible only in the raw file.
+- Clients over their limit default at 30.07% against 21.58% for clients within their limit. That gap is visible in both the raw and cleaned files.
 
 ## 14. Summary of findings
 
@@ -423,8 +421,8 @@ UTILIZATION  0.0730   0.0761      0.0031
 **About the pipeline**
 
 10. **The bill columns are collinear to the point of uselessness.** Variance inflation factors run past 15. Keep one, or replace the block with utilization.
-11. **The cleaning is sound with three caveats.** 8 of 11 checks pass. Capping helps a linear model and costs resolution at the top of the payment distribution, the undocumented repayment codes were treated differently from equivalent codes elsewhere, and the capping bounds were fitted on all 30,000 rows rather than on training data.
-12. **The conclusions do not depend on the cleaning.** Every headline result was recomputed on the raw file and the largest disagreement in rank correlation was 0.0031.
+11. **The cleaning is sound with one judgement caveat.** 8 of 9 checks pass. Financial outliers are preserved (no winsorization). The remaining concern is that undocumented repayment codes (-2 and 0) were left in place while equivalent undocumented EDUCATION and MARRIAGE codes were folded into 'other'.
+12. **The conclusions do not depend on the cleaning.** Every headline result was recomputed on the raw file. With financial amounts preserved, rank correlations with the target match exactly for the core columns.
 
 **Recommended starting point for model selection**
 

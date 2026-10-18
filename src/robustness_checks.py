@@ -1,12 +1,14 @@
 """Robustness checks on the selected model (read-only).
 
-Purpose: measure two things the report lists as open limitations, and add a
+Purpose: measure an open limitation listed in the report, and add a
 group-level error audit.
 
-  1. Cap limits fitted on training rows only (instead of all 30,000 rows).
-  2. Decision threshold picked from out-of-fold predictions (instead of the
+  1. Decision threshold picked from out-of-fold predictions (instead of the
      training-set predictions the model has already seen).
-  3. False-positive and false-negative rates by sex and education.
+  2. False-positive and false-negative rates by sex and education.
+
+Financial outliers are no longer winsorized in cleaning, so there is no
+"fit caps on train only" variant to compare.
 
 The selected model is histogram gradient boosting on the kitchen_sink inputs,
 as chosen in modeling.py. This script reuses the cleaning and modeling code
@@ -25,7 +27,6 @@ import sys
 import warnings
 from pathlib import Path
 
-import pandas as pd
 from sklearn.metrics import (
     average_precision_score,
     confusion_matrix,
@@ -55,7 +56,7 @@ EDUCATION_LABELS = {
 }
 
 
-def split(df: pd.DataFrame):
+def split(df):
     """Same stratified 80/20 split that modeling.py uses."""
     y = df[mdl.TARGET].astype(int)
     X = df.drop(columns=[mdl.TARGET, "ID"], errors="ignore")
@@ -73,7 +74,7 @@ def new_pipeline():
     return mdl.make_pipeline(MODEL_NAME, estimator, FEATURES, [])
 
 
-def run_variant(df: pd.DataFrame, out_of_fold: bool, label: str) -> dict:
+def run_variant(df, out_of_fold: bool, label: str) -> dict:
     """Fit, pick a threshold, score the hold-out set, print one line."""
     X_train, X_test, y_train, y_test = split(df)
     pipe = new_pipeline().fit(X_train[FEATURES], y_train)
@@ -104,20 +105,6 @@ def run_variant(df: pd.DataFrame, out_of_fold: bool, label: str) -> dict:
         f"accuracy={(tp + tn) / len(y_test):.3f}"
     )
     return {"X_test": X_test, "y_test": y_test, "pred": pred}
-
-
-def cap_on_train_only(report: dict, train_index: pd.Index) -> pd.DataFrame:
-    """Rebuild the cleaned frame with IQR caps fitted on training rows."""
-    df = report["df_pre_cap"].copy()
-    for col in dc.FINANCIAL_COLUMNS:
-        values = df.loc[train_index, col]
-        q1, q3 = values.quantile(0.25), values.quantile(0.75)
-        iqr = q3 - q1
-        lower = round(q1 - dc.IQR_MULTIPLIER * iqr)
-        upper = round(q3 + dc.IQR_MULTIPLIER * iqr)
-        df[col] = df[col].clip(lower=lower, upper=upper).astype(df[col].dtype)
-    df, _ = dc.recode_categoricals(df)
-    return dc.prepare_features(df)
 
 
 def group_audit(result: dict) -> None:
@@ -153,27 +140,14 @@ def main() -> None:
     report = dc.clean_dataframe()
     as_reported = mdl.engineer_features(report["df_cleaned"])
 
-    print("== Threshold and cap-limit checks (hold-out set, 6,000 rows) ==")
+    print("== Threshold checks (hold-out set, 6,000 rows; outliers preserved) ==")
     base = run_variant(
         as_reported, False,
-        "A. As in the report: caps on all rows, threshold from train preds",
+        "A. As in the report: threshold from train predictions",
     )
     run_variant(
         as_reported, True,
-        "B. Caps on all rows, threshold from out-of-fold predictions",
-    )
-
-    train_index = split(as_reported)[0].index
-    train_capped = mdl.engineer_features(
-        cap_on_train_only(report, train_index)
-    )
-    run_variant(
-        train_capped, False,
-        "C. Caps on training rows only, threshold from train preds",
-    )
-    run_variant(
-        train_capped, True,
-        "D. Caps on training rows only, threshold from out-of-fold",
+        "B. Threshold from out-of-fold predictions",
     )
 
     print("\n== Error rates by group, variant A (hold-out set) ==")

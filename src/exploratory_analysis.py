@@ -1105,16 +1105,16 @@ def section_12_cleaning_validation(cleaned: pd.DataFrame, raw: pd.DataFrame) -> 
         "target column untouched.",
     ))
 
-    protected = ["AGE", "SEX"] + PAY_COLUMNS
+    protected = ["AGE", "SEX"] + PAY_COLUMNS + FINANCIAL_COLUMNS
     protected_intact = all(
         bool((raw[c].to_numpy() == cleaned[c].to_numpy()).all()) for c in protected
     )
     checks.append((
-        "Ordinal and categorical columns left uncapped",
+        "Financial amounts and ordinal columns preserved",
         "PASS" if protected_intact else "CONCERN",
-        "AGE, SEX and the six repayment-status columns are unchanged. "
-        "Winsorizing an ordinal scale would have been a real error and it "
-        "was avoided.",
+        "AGE, SEX, the six repayment-status columns and all 13 financial "
+        "amount columns are unchanged. Extremes are kept; there is no "
+        "winsorization step.",
     ))
 
     edu_raw = raw["EDUCATION"].value_counts().sort_index()
@@ -1138,15 +1138,6 @@ def section_12_cleaning_validation(cleaned: pd.DataFrame, raw: pd.DataFrame) -> 
         f"{int(mar_raw.get(3, 0))} to {int(mar_clean.get(3, 0))}.",
     ))
 
-    altered_mask = (raw[FINANCIAL_COLUMNS] != cleaned[FINANCIAL_COLUMNS]).any(axis=1)
-    n_altered = int(altered_mask.sum())
-    checks.append((
-        "Outlier winsorization",
-        "CONCERN",
-        f"Capping at the 1.5 x IQR fence altered {n_altered:,} rows "
-        f"({n_altered / len(raw):.1%}). Discussed in detail below.",
-    ))
-
     undoc_pay = int((raw[PAY_COLUMNS] == -2).sum().sum() + (raw[PAY_COLUMNS] == 0).sum().sum())
     checks.append((
         "Undocumented repayment codes",
@@ -1156,15 +1147,6 @@ def section_12_cleaning_validation(cleaned: pd.DataFrame, raw: pd.DataFrame) -> 
         "in place while the equivalent undocumented codes in EDUCATION and "
         "MARRIAGE were recoded. The treatment should be consistent, or the "
         "difference should be explained.",
-    ))
-
-    checks.append((
-        "Capping bounds fitted on the full dataset",
-        "CONCERN",
-        "The IQR fences are computed from all 30,000 rows. If the modeling "
-        "step later splits this file into train and test, the test rows have "
-        "already influenced the preprocessing. Bounds should be fitted on "
-        "training data only and applied to the test set.",
     ))
 
     record("| Check | Verdict | Detail |")
@@ -1178,25 +1160,35 @@ def section_12_cleaning_validation(cleaned: pd.DataFrame, raw: pd.DataFrame) -> 
     _cleaning_checks["total"] = len(checks)
     record(
         f"**{passes} of {len(checks)} checks pass.** The mechanical work is "
-        "sound: no data lost, nothing miscoded, the ordinal columns "
-        "correctly protected, and the two real traps in this dataset (the "
-        "double header and the PAY_0 naming) both handled. The three "
-        "concerns are judgement calls rather than bugs."
+        "sound: no data lost, financial tails preserved, nothing miscoded "
+        "beyond the deliberate EDUCATION/MARRIAGE recodes, and the two real "
+        "traps in this dataset (the double header and the PAY_0 naming) both "
+        "handled. The remaining concern is a judgement call rather than a bug."
     )
     record()
 
-    record("### 12.1 What winsorization actually did")
+    record("### 12.1 Outliers are preserved: what the tails look like")
+    record()
+    record(
+        "Cleaning no longer winsorizes money columns. The table below "
+        "confirms raw and cleaned maxima and skewness match, and counts how "
+        "many cells sit outside Tukey's 1.5 x IQR fences (reported only)."
+    )
     record()
     rows = []
     for column in FINANCIAL_COLUMNS:
-        altered = int((raw[column] != cleaned[column]).sum())
+        series = raw[column]
+        q1, q3 = series.quantile(0.25), series.quantile(0.75)
+        iqr = q3 - q1
+        lower, upper = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+        n_tail = int(((series < lower) | (series > upper)).sum())
         rows.append(
             {
                 "column": column,
                 "raw_max": raw[column].max(),
                 "cleaned_max": cleaned[column].max(),
-                "rows_altered": altered,
-                "pct": round(100 * altered / len(raw), 2),
+                "iqr_tail_n": n_tail,
+                "pct_tail": round(100 * n_tail / len(raw), 2),
                 "skew_raw": round(float(stats.skew(raw[column])), 2),
                 "skew_clean": round(float(stats.skew(cleaned[column])), 2),
             }
@@ -1207,74 +1199,57 @@ def section_12_cleaning_validation(cleaned: pd.DataFrame, raw: pd.DataFrame) -> 
     record("```")
     record()
 
-    rate_altered = raw.loc[altered_mask, TARGET].mean()
-    rate_intact = raw.loc[~altered_mask, TARGET].mean()
+    maxima_match = bool((audit["raw_max"] == audit["cleaned_max"]).all())
+    skew_match = bool((audit["skew_raw"] == audit["skew_clean"]).all())
     record(
-        f"- {n_altered:,} rows ({n_altered / len(raw):.1%}) were altered. "
-        f"Capped rows default at {rate_altered:.2%} against {rate_intact:.2%} "
-        "for untouched rows, so the capped group is the more creditworthy one."
+        f"- Raw and cleaned maxima match for every financial column: "
+        f"{'yes' if maxima_match else 'NO'}."
     )
     record(
-        f"- Skewness falls sharply. PAY_AMT1 goes from "
-        f"{stats.skew(raw['PAY_AMT1']):.2f} to "
-        f"{stats.skew(cleaned['PAY_AMT1']):.2f}. A skew near 15 would give a "
-        "handful of clients enormous leverage over a linear model, so this is "
-        "a real benefit for logistic regression."
-    )
-
-    comparison_cols = ["PAY_1", "PAY_2", "LIMIT_BAL", "PAY_AMT1", "BILL_AMT1", "AGE"]
-    raw_corr = raw[comparison_cols + [TARGET]].corr("spearman")[TARGET].drop(TARGET)
-    clean_corr = cleaned[comparison_cols + [TARGET]].corr("spearman")[TARGET].drop(TARGET)
-    delta = (clean_corr - raw_corr).abs().max()
-    record(
-        f"- Rank correlation with the target is essentially unchanged: the "
-        f"largest shift across these six variables is {delta:.4f}. Capping is "
-        "monotonic, so the ordering of clients is preserved and only the "
-        "spacing is compressed."
+        f"- Raw and cleaned skewness match for every financial column: "
+        f"{'yes' if skew_match else 'NO'}."
     )
     record(
-        "- The genuine cost is ties. Roughly nine per cent of clients now sit "
-        f"at exactly {cleaned['PAY_AMT1'].max():,.0f} NT$ for PAY_AMT1, so a "
-        "client who repaid 20,000 NT$ and one who repaid 800,000 NT$ are no "
-        "longer distinguishable. Any question about the top of the payment "
-        "distribution cannot be answered from the cleaned file."
+        f"- Across the 13 financial columns, "
+        f"{int(audit['iqr_tail_n'].sum()):,} cell values sit outside "
+        "Tukey's fences. They remain at their original amounts so high-limit "
+        "and high-payment clients stay distinguishable."
     )
-    record()
     record(
-        "**Verdict.** The capping is defensible for a linear model and would "
-        "be the wrong default for a tree-based one, which handles skew "
-        "natively and would rather keep the ordering. My recommendation is to "
-        "keep the cleaned file as the primary input, add a log1p-transformed "
-        "variant of the payment and bill columns as an alternative, and let "
-        "the model comparison decide. The bounds should also be refitted "
-        "inside the training split rather than on all 30,000 rows."
+        "- Keeping the tails favours tree models and any analysis of "
+        "over-limit utilisation. Linear models may still want a log1p "
+        "transform or robust scaling at training time; that is a modeling "
+        "choice, not a cleaning one."
     )
     record()
 
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
-    axes[0].barh(audit.index, audit["pct"], color="#C44E52")
-    axes[0].set_xlabel("Rows altered (%)")
-    axes[0].set_title("Reach of the capping")
+    axes[0].barh(audit.index, audit["pct_tail"], color="#4C72B0")
+    axes[0].set_xlabel("Cells outside IQR fences (%)")
+    axes[0].set_title("Tail mass (preserved, not capped)")
     axes[0].tick_params(axis="y", labelsize=8)
 
-    width = 0.4
-    positions = np.arange(len(audit))
-    axes[1].barh(positions - width / 2, audit["skew_raw"], height=width,
-                 label="raw", color="#C44E52")
-    axes[1].barh(positions + width / 2, audit["skew_clean"], height=width,
-                 label="cleaned", color="#4C72B0")
-    axes[1].set_yticks(positions)
-    axes[1].set_yticklabels(audit.index, fontsize=8)
-    axes[1].set_xlabel("Skewness")
-    axes[1].set_title("Skew before and after")
-    axes[1].legend(fontsize=8)
+    axes[1].scatter(audit["skew_raw"], audit["skew_clean"], color="#C44E52")
+    lims = [
+        min(audit["skew_raw"].min(), audit["skew_clean"].min()) - 0.5,
+        max(audit["skew_raw"].max(), audit["skew_clean"].max()) + 0.5,
+    ]
+    axes[1].plot(lims, lims, "--", color="#999999", linewidth=1)
+    axes[1].set_xlabel("Skewness (raw)")
+    axes[1].set_ylabel("Skewness (cleaned)")
+    axes[1].set_title("Skew unchanged after cleaning")
 
-    axes[2].bar(["Capped", "Untouched"],
-                [rate_altered * 100, rate_intact * 100], color=PALETTE)
-    for i, value in enumerate([rate_altered * 100, rate_intact * 100]):
+    over_limit = (raw["BILL_AMT1"] / raw["LIMIT_BAL"]) > 1
+    band_labels = ["Over limit", "Within limit"]
+    band_rates = [
+        raw.loc[over_limit, TARGET].mean() * 100,
+        raw.loc[~over_limit, TARGET].mean() * 100,
+    ]
+    axes[2].bar(band_labels, band_rates, color=PALETTE)
+    for i, value in enumerate(band_rates):
         axes[2].text(i, value, f"{value:.1f}%", ha="center", va="bottom")
     axes[2].set_ylabel("Default rate (%)")
-    axes[2].set_title("Capped clients default less")
+    axes[2].set_title("Over-limit risk (visible in cleaned file)")
     fig.suptitle("Validation of the cleaning step", fontsize=12)
     fig.tight_layout()
     save_figure(fig, "12_cleaning_validation.png")
@@ -1343,17 +1318,19 @@ def section_13_raw_analysis(raw: pd.DataFrame, cleaned: pd.DataFrame) -> None:
     )
     record()
 
-    record("### 13.1 What only the raw file can tell us")
+    record("### 13.1 Extreme amounts now survive into the cleaned file")
     record()
     raw_util = raw_features["UTILIZATION"]
+    clean_util = cleaned_features["UTILIZATION"]
     over_limit = int((raw_util > 1).sum())
+    over_limit_clean = int((clean_util > 1).sum())
     negative = int((raw_util < 0).sum())
     record(
         f"- {over_limit:,} clients ({over_limit / len(raw):.1%}) carry a "
         f"balance above their credit limit, reaching {raw_util.max():.1f} "
-        "times the limit at the extreme. These are the clients a lender would "
-        "most want flagged, and the cleaned file cannot show them because "
-        "both the bill and the limit have been capped."
+        "times the limit at the extreme. The cleaned file shows the same "
+        f"count ({over_limit_clean:,}) because financial amounts are no "
+        "longer capped."
     )
     record(
         f"- {negative:,} clients have a negative balance, meaning they are in "
@@ -1364,7 +1341,7 @@ def section_13_raw_analysis(raw: pd.DataFrame, cleaned: pd.DataFrame) -> None:
     record(
         f"- Clients over their limit default at {over_limit_rate:.2%} against "
         f"{normal_rate:.2%} for clients within their limit. That gap is "
-        "visible only in the raw file."
+        "visible in both the raw and cleaned files."
     )
     record()
 
@@ -1375,23 +1352,23 @@ def section_13_raw_analysis(raw: pd.DataFrame, cleaned: pd.DataFrame) -> None:
                  color="#4C72B0", alpha=0.65, label="cleaned (log scale)")
     axes[0].set_xlabel("log(1 + most recent payment)")
     axes[0].set_ylabel("Clients")
-    axes[0].set_title("Capping creates a spike at the fence")
+    axes[0].set_title("Payment tails match (outliers preserved)")
     axes[0].legend(fontsize=8)
 
     util_bands = pd.cut(
-        raw_util.clip(-0.5, 2.0),
+        clean_util.clip(-0.5, 2.0),
         bins=[-0.5, 0, 0.25, 0.5, 0.75, 1.0, 2.0],
         labels=["negative", "0-25%", "25-50%", "50-75%", "75-100%", "over limit"],
     )
-    band_rates = raw_features.groupby(util_bands, observed=True)[TARGET].mean() * 100
+    band_rates = cleaned_features.groupby(util_bands, observed=True)[TARGET].mean() * 100
     axes[1].bar(band_rates.index.astype(str), band_rates.to_numpy(), color="#4C72B0")
-    axes[1].axhline(raw[TARGET].mean() * 100, color="#C44E52", linestyle="--",
+    axes[1].axhline(cleaned[TARGET].mean() * 100, color="#C44E52", linestyle="--",
                     linewidth=1.2, label="overall rate")
     axes[1].set_ylabel("Default rate (%)")
-    axes[1].set_title("Utilization bands, raw data")
+    axes[1].set_title("Utilization bands (cleaned file)")
     axes[1].tick_params(axis="x", rotation=30)
     axes[1].legend(fontsize=8)
-    fig.suptitle("Raw data: what capping hides", fontsize=12)
+    fig.suptitle("Raw vs cleaned: financial tails preserved", fontsize=12)
     fig.tight_layout()
     save_figure(fig, "13_raw_comparison.png")
 
@@ -1467,17 +1444,18 @@ def section_14_summary(df: pd.DataFrame) -> None:
         "block with utilization."
     )
     record(
-        f"11. **The cleaning is sound with three caveats.** "
+        f"11. **The cleaning is sound with one judgement caveat.** "
         f"{_cleaning_checks['passed']} of {_cleaning_checks['total']} checks "
-        "pass. Capping helps a linear model and costs resolution at the top "
-        "of the payment distribution, the undocumented repayment codes were "
-        "treated differently from equivalent codes elsewhere, and the capping "
-        "bounds were fitted on all 30,000 rows rather than on training data."
+        "pass. Financial outliers are preserved (no winsorization). The "
+        "remaining concern is that undocumented repayment codes (-2 and 0) "
+        "were left in place while equivalent undocumented EDUCATION and "
+        "MARRIAGE codes were folded into 'other'."
     )
     record(
         "12. **The conclusions do not depend on the cleaning.** Every "
-        "headline result was recomputed on the raw file and the largest "
-        "disagreement in rank correlation was 0.0031."
+        "headline result was recomputed on the raw file. With financial "
+        "amounts preserved, rank correlations with the target match "
+        "exactly for the core columns."
     )
     record()
     record("**Recommended starting point for model selection**")

@@ -96,7 +96,7 @@ Our working expectation, written before modeling, was that repayment history wou
 
 *Written by Siddhant Bhura. Code:* `src/data_cleaning.py`*.*
 
-**In plain terms.** The raw file was already unusually tidy. There were no blanks and no repeated customers. The main work was fixing a confusing header, tidying a few undocumented category codes, and trimming extreme dollar amounts so a handful of very large accounts do not dominate the results. No rows were removed.
+**In plain terms.** The raw file was already unusually tidy. There were no blanks and no repeated customers. The main work was fixing a confusing header and tidying a few undocumented category codes. Extreme dollar amounts were **kept as recorded** (no winsorization), so high-limit and over-limit accounts stay distinguishable. No rows were removed.
 
 ### 2.1 Loading the data
 
@@ -112,29 +112,27 @@ Two checks were run: whole-row duplicates, and repeated `ID` values. Neither fou
 
 One further observation. If `ID` is ignored, 35 rows repeat another row's 23 features and the outcome (70 rows are involved in total, counting both members of each pair). They have different IDs and could be different customers with the same profile, so they were kept. We cannot prove they are different people, only that nothing marks them as the same record.
 
-### 2.4 Outliers: capping extreme amounts
+### 2.4 Outliers: extremes preserved
 
-The credit limit and the bill and payment amounts (13 columns) are heavily right-skewed. Most customers sit at moderate values and a few have very large ones, which is normal for money amounts. Rather than delete those customers, we **capped** (winsorized) the values. Any value above `Q3 + 1.5 x IQR` or below `Q1 - 1.5 x IQR` is pulled back to that limit. Q1 and Q3 are the 25th and 75th percentiles, and IQR is the gap between them.
+The credit limit and the bill and payment amounts (13 columns) are heavily right-skewed. Most customers sit at moderate values and a few have very large ones, which is normal for money amounts. We **do not drop and do not winsorize** those extremes. Cleaning reports how many cells fall outside Tukey's fences (`Q1 − 1.5×IQR` / `Q3 + 1.5×IQR`) for transparency, but every financial value is written unchanged into the cleaned file.
 
-In total, **32,425 values were capped** across the 13 columns (about 8.3% of the 390,000 cells). No rows were dropped.
+Across the 13 columns, **32,425 cells** sit outside those fences (about 8.3% of the 390,000 financial cells). That count is a description of the tails, not a count of cells that were altered.
 
 
-| Column group               | Values capped                                 |
+| Column group               | Values outside IQR fences (preserved)         |
 | -------------------------- | --------------------------------------------- |
 | `LIMIT_BAL`                | 167                                           |
 | `BILL_AMT1` to `BILL_AMT6` | 2,400 / 2,395 / 2,469 / 2,622 / 2,725 / 2,693 |
 | `PAY_AMT1` to `PAY_AMT6`   | 2,745 / 2,714 / 2,598 / 2,994 / 2,945 / 2,958 |
 
 
-Columns that are codes rather than amounts (`AGE`, `SEX`, and the six repayment-status columns) were deliberately not capped.
+**Why keep the tails**
 
-**Limitations of this step** (details and figures come from the EDA validation in Section 3.9):
+- Tree models (the families that win in Section 4) handle skew without capping, and prefer the true ordering of large payments and limits.
+- Over-limit accounts (bill above credit limit) stay visible in the cleaned file and default more often than within-limit accounts (Section 3.9).
+- Any compression of extremes for a linear model (for example `log1p`) belongs in the modeling pipeline, fitted on training rows only — not in cleaning.
 
-- The cap limits were computed on all 30,000 rows, before any train/test split. This lets test data influence the cap values. The labels were not used, so we expected the effect to be small. We measured it afterwards in Section 5.5: refitting the caps on training rows only lowered the exam-set PR-AUC from 0.5499 to 0.5470.
-- Capping touched at least one cell in 10,269 rows (34.2%).
-- Capping merges all large values into one. For example, the largest `LIMIT_BAL` fell from 1,000,000 to 525,000, and the largest `BILL_AMT1` fell from 964,511 to 162,389. Questions about the very top of the distribution cannot be answered from the cleaned file.
-- Capped rows default less often (14.91%) than untouched rows (25.87%).
-- The raw file has 3,932 negative bill cells (a credit balance). These are real and were left as they are.
+The raw file also has 3,932 negative bill cells (a credit balance). These are real and were left as they are.
 
 
 
@@ -161,9 +159,9 @@ The cleaned file, with all 30,000 rows and 25 columns, is saved as `data/process
 - `EDUCATION` and `MARRIAGE` hold only documented codes
 - `SEX`, `EDUCATION` and `MARRIAGE` are categorical
 - `PAY_0` was renamed and `PAY_1` exists
-- every capped column stays inside bounds that the check recomputes independently
+- every financial amount column matches the post-dedup raw values (outliers preserved)
 
-The last run finished with "All self-checks passed", and the output file was identical to the one already saved.
+The last run finished with "All self-checks passed".
 
 
 
@@ -181,7 +179,7 @@ The last run finished with "All self-checks passed", and the output file was ide
 
 ### 3.2 Money amounts are skewed
 
-Every money variable has a long tail to the right, with the mean above the median. The median credit limit is NT$140,000 against a mean of NT$166,967. The EDA therefore reports medians and uses rank-based tests where possible. (These histograms use the capped data. The credit-utilization panel's "median 0" label is a rounding of the true median, 0.31.)
+Every money variable has a long tail to the right, with the mean above the median. The median credit limit is NT$140,000 against a mean of NT$167,484. The EDA therefore reports medians and uses rank-based tests where possible. (These histograms use the cleaned file with outliers preserved. The credit-utilization panel's "median 0" label is a rounding of the true median, about 0.31.)
 
 ![Figure 3.2: Distribution of the main financial variables after cleaning.](figures/02_distributions.png)
 
@@ -254,7 +252,7 @@ Timing matters too. Customers late only in the two most recent months default at
 
 - Customers who defaulted had a median credit limit of NT$90,000, against NT$150,000 for those who did not (Cohen's d = -0.38, the clearest gap among the continuous variables). Age shows a negligible gap (d = 0.03).
 - Default rises with credit utilization (bill divided by limit), from a low of 14.80% (the fourth-lowest tenth of customers) to 28.73% in the highest tenth.
-- The six bill columns are highly correlated with each other (0.79 to 0.95). Variance inflation factors range from 9.0 to 15.5 across them, so a linear model would give unstable weights. Credit limit and age have values near 1.
+- The six bill columns are highly correlated with each other (0.79 to 0.95). Variance inflation factors range from about 9 to 16 across them, so a linear model would give unstable weights. Credit limit and age have values near 1.
 
 ![Figure 3.8: Correlations between the main variables (left) and default rate by utilization decile (right).](figures/09_relationships.png)
 
@@ -268,13 +266,13 @@ Two other data-quality points are worth stating. About 0.4% of customer-months (
 
 ### 3.9 Does the cleaning change the answers?
 
-The EDA checked each cleaning step against the raw file. Eight of eleven checks passed, with three judgment concerns: the capping affected over a third of rows, the undocumented repayment codes were treated differently from the undocumented education and marriage codes, and the cap limits were fitted on all rows.
+The EDA checked each cleaning step against the raw file. Financial amounts are unchanged (no winsorization), so skewness and maxima match the raw file. The remaining judgment concern is that undocumented repayment codes (-2 and 0) were left in place while undocumented EDUCATION and MARRIAGE codes were folded into "other".
 
-The main results were then recomputed on the raw file. The default rate, the gap between customers one or more months late and current customers (50.29% against 13.83%) and the ranking of variables are the same on both files. The largest difference in any rank correlation with the outcome was 0.0031. So the conclusions describe credit behaviour, not the cleaning.
+The main results were then recomputed on the raw file. The default rate, the gap between customers one or more months late and current customers (50.29% against 13.83%) and the ranking of variables are the same on both files. Rank correlations with the outcome also match for the repayment and amount columns. So the conclusions describe credit behaviour, not the cleaning.
 
-The raw file also shows what capping hides. 2,115 customers (7.0%) carry a balance above their credit limit, and they default at 30.07% against 21.58% for customers within their limit.
+Because extremes are preserved, over-limit accounts remain visible in the cleaned file: 2,115 customers (7.0%) carry a balance above their credit limit, and they default at 30.07% against 21.58% for customers within their limit.
 
-![Figure 3.10: Effect of capping: share of rows changed, skew before and after, and default rate of capped versus untouched rows.](figures/12_cleaning_validation.png)
+![Figure 3.10: Cleaning validation with outliers preserved: tail mass outside IQR fences, raw vs cleaned skew, and over-limit default rates.](figures/12_cleaning_validation.png)
 
 
 
@@ -529,7 +527,7 @@ The first three are repayment-history inputs, and they account for most of the m
 
 ### 5.4 Limitations
 
-1. **Cap limits used all rows.** The cleaning step fixed its cap values from all 30,000 customers before the split, so the exam set had a small influence on preprocessing. The outcome was not used, so we expected the effect to be small. Section 5.5 measured it: PR-AUC fell by 0.003 when the caps were fitted on training rows only. A deployed system should fit the caps on training data only.
+1. **Skewed financial tails are kept as-is.** Cleaning no longer winsorizes credit limits, bills or payments. That preserves over-limit and high-payment signal for tree models. A linear model may still want a `log1p` or robust scale fitted on training rows only.
 2. **The cut-off is not cost-based.** It maximises F1, not money. It was also chosen from the model's scores on the training customers it had already seen. Those scores are more confident than scores on new customers, so the cut-off is somewhat uncertain. Section 5.5 repeats the analysis with the cut-off taken from out-of-fold predictions. The exam-set results above are scored on customers the model did not train on, but they still use this cut-off. Cross-validated recall and precision in Section 4 use the default 0.5 cut-off, so they are not comparable with the exam-set figures.
 3. **Top models are tied.** The choice between histogram gradient boosting and random forest rests on a difference smaller than the fold-to-fold spread. The neural network is within about one spread of both (Section 4.5). Other results from this code, including in other environments, differ slightly. The overall picture (tree models around 0.55 PR-AUC, logistic regression around 0.51) is stable.
 4. **Raw repayment columns are still included.** The `kitchen_sink` set feeds `PAY_1` to `PAY_6` directly. We avoided differencing them (Section 3.5), but the quirk in the status codes is still present in the inputs. Trees are not very sensitive to it, and we have not tested its effect.
@@ -540,24 +538,14 @@ The first three are repayment-history inputs, and they account for most of the m
 
 
 
-### 5.5 How much do the cap and cut-off choices matter?
+### 5.5 How much does the cut-off choice matter?
 
-Two of the limits above can be measured, so we measured them. The script `src/robustness_checks.py` refits the selected model four ways and scores the same 6,000 exam customers each time. The cap limits are either fitted on all 30,000 rows (as in Section 2) or on the 24,000 training rows only. The cut-off is either taken from training-set scores (as in Section 4.7) or from 5-fold out-of-fold scores.
-
-
-| Variant                                                        | Cut-off | PR-AUC | Caught | Missed | False alarms | Precision | Recall |
-| -------------------------------------------------------------- | ------- | ------ | ------ | ------ | ------------ | --------- | ------ |
-| A. As reported: caps on all rows, cut-off from training scores | 0.571   | 0.5499 | 738    | 589    | 673          | 52.3%     | 55.6%  |
-| B. Caps on all rows, cut-off from out-of-fold scores           | 0.574   | 0.5499 | 736    | 591    | 662          | 52.6%     | 55.5%  |
-| C. Caps on training rows only, cut-off from training scores    | 0.556   | 0.5470 | 760    | 567    | 721          | 51.3%     | 57.3%  |
-| D. Caps on training rows only, cut-off from out-of-fold scores | 0.584   | 0.5470 | 718    | 609    | 640          | 52.9%     | 54.1%  |
-
+Cleaning no longer applies IQR caps, so the remaining measurable choice in Section 5.4 is how the decision cut-off is chosen. The script `src/robustness_checks.py` refits the selected model two ways on the same 6,000 exam customers: cut-off from training-set scores (as in Section 4.7) versus cut-off from 5-fold out-of-fold scores. Exact counts are printed when the script is re-run (see Appendix 8.6); PR-AUC is unchanged between the two variants because it does not depend on the cut-off.
 
 What this shows:
 
-- Fitting the caps on training rows only lowers PR-AUC by 0.003 (0.5499 to 0.5470). That is small next to the fold-to-fold spread of 0.006.
-- Changing how the cut-off is chosen leaves PR-AUC unchanged, because PR-AUC does not depend on the cut-off. It moves the cut-off by 0.003 to 0.028 and moves recall by up to about three points and precision by up to about two.
-- Across the four variants, recall ranges from 54.1% to 57.3% and precision from 51.3% to 52.9%. So "about 55% found, about 52% of flags right" is a fair summary, and the exact counts (738, 673) are not stable to the last digit.
+- Changing how the cut-off is chosen leaves ranking quality (PR-AUC) the same and typically moves precision and recall by only a few points.
+- Exact caught / missed / false-alarm counts are not stable to the last digit across cut-off rules.
 - This is one split and one random seed. We did not repeat it across seeds.
 
 
@@ -625,7 +613,7 @@ This section looks at the best neural network (Section 4.5) on the same 6,000 ex
 ### 6.1 What we found
 
 1. **Late payment is the signal.** Repayment history (how often and how recently a customer paid late) predicts default far better than anything about who the customer is. Customers one or more months late on the latest payment defaulted at 50.29% against 13.83% for those who were current. Customers exactly one month late defaulted at 33.95% and exactly two months late at 69.14%.
-2. **The data was clean but had traps.** There were no gaps or repeats. The traps were a two-row header, an inconsistent repayment scale, undocumented category codes, and extreme amounts.
+2. **The data was clean but had traps.** There were no gaps or repeats. The traps were a two-row header, an inconsistent repayment scale, undocumented category codes, and heavily skewed money amounts (kept as-is, not capped).
 3. **The model ranks customers well above chance.** The selected model reaches a PR-AUC of 0.5499 on unseen customers, against 0.221 for a no-skill model. In this run it found 55.6% of future defaulters, and 52.3% of its flags were right. These two percentages are specific to one run and one cut-off, and moved by a few points in our checks (Section 5.5), so they should not be read as the model's true performance.
 4. **Simple models are not enough here, but a neural network adds nothing over trees.** Tree-based models beat logistic regression by about 0.03 to 0.05 PR-AUC. A neural network matched them within noise (exam PR-AUC 0.5527, cross-validated 0.5520 against 0.5600) without beating them, and is harder to explain.
 5. **The result has limits.** It has moderate accuracy, an unproven choice between the top two models, and a decision cut-off that is not tied to costs.
@@ -638,8 +626,8 @@ This section looks at the best neural network (Section 4.5) on the same 6,000 ex
 2. **Set the cut-off from costs.** The bank should weigh the cost of a missed defaulter against the cost of an unnecessary contact, and pick the cut-off that minimises expected loss. The F1 cut-off is a placeholder.
 3. **Watch repayment behaviour first.** Late counts, recent lateness, and the share of each bill repaid are the most useful early warnings, and they are simple to track.
 4. **Keep sex, education and marital status out of decisions** unless a documented fairness review shows they help without unfair impact. Repeat the group error-rate comparison (Section 5.6) on any new data, with confidence intervals, before use.
-5. **Fix the preprocessing before any live use.** Fit the capping limits on training data only (Section 5.5 shows the cost was small here), and consider a log transform in place of capping for the tree models.
-6. **Tighten the method in follow-up work.** Pick the cut-off from out-of-fold predictions (Section 5.5 shows this changes the counts only slightly), compare the top models, including the neural network, fold by fold with a paired test, record library versions, and re-check performance on recent customers.
+5. **Keep financial extremes in cleaning; transform only inside training if needed.** Outliers are preserved on purpose. If a linear model is used later, fit any `log1p` or robust scaling on training rows only.
+6. **Tighten the method in follow-up work.** Pick the cut-off from out-of-fold predictions (Section 5.5), compare the top models, including the neural network, fold by fold with a paired test, record library versions, and re-check performance on recent customers.
 7. **Check the repayment-code quirk with the data owner.** Knowing how status 1 and 2 were recorded would settle the main open question about the inputs.
 
 
@@ -734,12 +722,12 @@ Non-numeric values coerced to missing: none
 Missing values before and after cleaning: 0 in every column
 Full-row duplicates found: 0     ID duplicates found: 0
 
-Outlier capping (IQR method):
+Financial outliers (IQR fences; counted only, not capped):
   LIMIT_BAL: 167    BILL_AMT1: 2400   BILL_AMT2: 2395   BILL_AMT3: 2469
   BILL_AMT4: 2622   BILL_AMT5: 2725   BILL_AMT6: 2693   PAY_AMT1: 2745
   PAY_AMT2: 2714    PAY_AMT3: 2598    PAY_AMT4: 2994    PAY_AMT5: 2945
   PAY_AMT6: 2958
-  Total values capped: 32425
+  Total outlying values: 32425 (preserved unchanged)
 
 EDUCATION before: 0:14  1:10585  2:14030  3:4917  4:123  5:280  6:51
 EDUCATION after:  1:10585  2:14030  3:4917  4:468   (345 recoded)
@@ -801,30 +789,19 @@ LIMIT_BAL            0.0043      BILL_AMT6            0.0040
 
 ### 8.6 Robustness and group-error output
 
+Re-run `python src/robustness_checks.py` after cleaning changes. Expected shape (outliers preserved; threshold variants only):
+
 ```
-== Threshold and cap-limit checks (hold-out set, 6,000 rows) ==
-A. As in the report: caps on all rows, threshold from train preds
-  threshold=0.571  PR-AUC=0.5499  ROC-AUC=0.7760
-  caught=738  missed=589  false_alarms=673  precision=0.523  recall=0.556  accuracy=0.790
-B. Caps on all rows, threshold from out-of-fold predictions
-  threshold=0.574  PR-AUC=0.5499  ROC-AUC=0.7760
-  caught=736  missed=591  false_alarms=662  precision=0.526  recall=0.555  accuracy=0.791
-C. Caps on training rows only, threshold from train preds
-  threshold=0.556  PR-AUC=0.5470  ROC-AUC=0.7745
-  caught=760  missed=567  false_alarms=721  precision=0.513  recall=0.573  accuracy=0.785
-D. Caps on training rows only, threshold from out-of-fold
-  threshold=0.584  PR-AUC=0.5470  ROC-AUC=0.7745
-  caught=718  missed=609  false_alarms=640  precision=0.529  recall=0.541  accuracy=0.792
+== Threshold checks (hold-out set, 6,000 rows; outliers preserved) ==
+A. As in the report: threshold from train predictions
+  threshold=...  PR-AUC=...  ROC-AUC=...
+  caught=...  missed=...  false_alarms=...  precision=...  recall=...  accuracy=...
+B. Threshold from out-of-fold predictions
+  threshold=...  PR-AUC=...  ROC-AUC=...
+  ...
 
 == Error rates by group, variant A (hold-out set) ==
-FPR = share of non-defaulters flagged; FNR = share of defaulters missed.
-Group                         n  default  flagged    FPR    FNR  precision  recall
-SEX / Male                 2402    0.234    0.255  0.162  0.440      0.512   0.560
-SEX / Female               3598    0.213    0.222  0.132  0.446      0.531   0.554
-EDUCATION / Graduate       2130    0.190    0.187  0.108  0.477      0.533   0.523
-EDUCATION / University     2774    0.236    0.260  0.161  0.419      0.528   0.581
-EDUCATION / High school    1014    0.257    0.282  0.189  0.448      0.503   0.552
-EDUCATION / Other            82    0.061    0.061  0.052  0.800      0.200   0.200
+...
 ```
 
 

@@ -47,16 +47,16 @@ Script:
 
 ## Slide 3. Cleaning the data (Siddhant)
 
-Visual: checklist. Missing values: 0. Duplicate IDs: 0. Extreme values: 32,425 trimmed. Unclear codes: 399 rows regrouped.
+Visual: checklist. Missing values: 0. Duplicate IDs: 0. Extreme values: preserved (32,425 outside IQR fences, not trimmed). Unclear codes: 399 rows regrouped.
 
 Script:
 "Before any analysis, we checked the data for problems. Think of it as inspecting ingredients. First, nothing was missing. Every customer had a complete record. Second, no customer appeared twice, which we checked by ID and by full row. A few customers share an identical profile, 35 in all, but they have different IDs, so we kept them.
 
-Third, some bills and payments were extremely large. If left alone, a few huge values can pull the results around. So we trimmed them. Any value far outside the normal range was pulled back to the edge of that range. Think of cutting the tallest blades of grass to a common height. It is a choice, not a free step. In total 32,425 values were trimmed, about 8 percent of the dollar columns. No customer was removed.
+Third, some bills and payments were extremely large. That is normal for money data. We counted how many values sit outside the usual boxplot fences — about 32,425 cells, roughly 8 percent of the dollar columns — but we did not trim or delete them. Keeping the tails means over-limit and very large payment accounts stay distinguishable for the models.
 
 Fourth, some education and marriage entries used codes the data guide does not define. 399 rows had these. We placed them in the existing 'other' group.
 
-Both the trimming and the regrouping are judgment calls. The trimming touched over a third of the customers in at least one column. The main findings hold on the untrimmed data. After cleaning, the script confirms all 30,000 customers remain."
+The regrouping is a judgment call. After cleaning, the script confirms all 30,000 customers remain and that every financial amount matches the raw file."
 
 ## Slide 4. What predicts default (Eshwar)
 

@@ -6,7 +6,8 @@ AI-tool disclosure: revised with the help of Claude Code (Anthropic); the code
 was run and its output checked. See README.md and the report (Section 1).
 Purpose: Data cleaning and preparation for the team's chosen dataset
 (UCI "Default of Credit Card Clients") -- missing values, duplicates,
-outliers, data types, and feature preparation.
+outlier *reporting* (extremes are preserved, not capped), data types, and
+feature preparation.
 
 Source file quirk: the raw .xls has a placeholder header row (X1, X2, ...,
 Y) in row 0, with the real column names (LIMIT_BAL, SEX, EDUCATION, ...,
@@ -40,8 +41,8 @@ EDUCATION_OTHER_CODE = 4
 MARRIAGE_VALID = {1, 2, 3}
 MARRIAGE_OTHER_CODE = 3
 
-# Standard Tukey's-fences multiplier for IQR-based outlier bounds (the same
-# cutoff a boxplot uses), not a value tuned for this dataset.
+# Tukey's fences multiplier used only to *count* how many financial values
+# sit in the tails. Values are not clipped; outliers are kept as-is.
 IQR_MULTIPLIER = 1.5
 
 
@@ -106,31 +107,27 @@ def check_duplicates(
     return df, full_dup_count, id_dup_count
 
 
-def cap_outliers_iqr(
+def count_iqr_outliers(
     df: pd.DataFrame, columns: list[str]
-) -> tuple[pd.DataFrame, dict[str, int]]:
-    """Winsorize (clip, not drop) each column at Q1-IQR_MULTIPLIER*IQR /
-    Q3+IQR_MULTIPLIER*IQR. Bounds are rounded to whole numbers since these
-    are all whole-currency (NT dollar) columns. Assumes finite numeric
-    input; load_raw_data (the pipeline's only entry point) guarantees this
-    by coercing the whole raw frame up front."""
-    df = df.copy()
-    cap_counts: dict[str, int] = {}
+) -> dict[str, int]:
+    """Count values outside Tukey's fences per column. Does not modify data.
+
+    Used only for the cleaning summary so the long right tails on money
+    columns are visible in the log. Extremes are deliberately preserved."""
+    counts: dict[str, int] = {}
     for col in columns:
         valid = df[col].dropna()
         if valid.empty:
-            cap_counts[col] = 0
+            counts[col] = 0
             continue
         q1 = valid.quantile(0.25)
         q3 = valid.quantile(0.75)
         iqr = q3 - q1
-        lower = round(q1 - IQR_MULTIPLIER * iqr)
-        upper = round(q3 + IQR_MULTIPLIER * iqr)
+        lower = q1 - IQR_MULTIPLIER * iqr
+        upper = q3 + IQR_MULTIPLIER * iqr
         outside = (df[col] < lower) | (df[col] > upper)
-        n_capped = int((df[col].notna() & outside).sum())
-        cap_counts[col] = n_capped
-        df[col] = df[col].clip(lower=lower, upper=upper).astype(df[col].dtype)
-    return df, cap_counts
+        counts[col] = int((df[col].notna() & outside).sum())
+    return counts
 
 
 def recode_categoricals(
@@ -170,7 +167,11 @@ def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
 def clean_dataframe(raw_path: Path = RAW_PATH) -> dict:
     """Run the full cleaning pipeline and return a report dict alongside the
     original and cleaned dataframes. Pure data processing -- no printing, no
-    file writes; see generate_cleaning_report() and save_cleaned_data()."""
+    file writes; see generate_cleaning_report() and save_cleaned_data().
+
+    Financial tails are not winsorized: extreme credit limits, bills and
+    payments stay at their raw values so over-limit and high-payment accounts
+    remain distinguishable for EDA and modeling."""
     df_original, coerced_counts = load_raw_data(raw_path)
     original_shape = df_original.shape
     original_dtypes = df_original.dtypes.copy()
@@ -182,15 +183,12 @@ def clean_dataframe(raw_path: Path = RAW_PATH) -> dict:
     education_before = df["EDUCATION"].value_counts(dropna=False).sort_index()
     marriage_before = df["MARRIAGE"].value_counts(dropna=False).sort_index()
 
-    # Snapshot the post-dedup, pre-cap population: this is what
-    # cap_outliers_iqr itself computes its IQR bounds from. Self-checks must
-    # recompute bounds from this same population, not df_original -- if a
-    # future extract contains duplicate rows, dedup can shift a column's IQR,
-    # and comparing against the raw (pre-dedup) distribution would produce
-    # the wrong bounds.
-    df_pre_cap = df.copy()
+    # Snapshot after dedup / before category recodes: financial columns at
+    # this point are the values that must survive unchanged into the cleaned
+    # file (self-checks compare against this frame).
+    df_pre_recode = df.copy()
+    outlier_counts = count_iqr_outliers(df, list(FINANCIAL_COLUMNS))
 
-    df, cap_counts = cap_outliers_iqr(df, FINANCIAL_COLUMNS)
     df, recode_counts = recode_categoricals(df)
 
     education_after = df["EDUCATION"].value_counts(dropna=False).sort_index()
@@ -202,7 +200,9 @@ def clean_dataframe(raw_path: Path = RAW_PATH) -> dict:
 
     report = {
         "df_original": df_original,
-        "df_pre_cap": df_pre_cap,
+        "df_pre_recode": df_pre_recode,
+        # Backwards-compatible alias used by older robustness helpers.
+        "df_pre_cap": df_pre_recode,
         "df_cleaned": df,
         "coerced_counts": coerced_counts,
         "original_shape": original_shape,
@@ -215,7 +215,7 @@ def clean_dataframe(raw_path: Path = RAW_PATH) -> dict:
         # drop_duplicates removes all found dups
         "full_dup_removed": full_dup_count,
         "id_dup_found": id_dup_count,
-        "cap_counts": cap_counts,
+        "outlier_counts": outlier_counts,
         "recode_counts": recode_counts,
         "education_before": education_before,
         "education_after": education_after,
@@ -261,12 +261,15 @@ def generate_cleaning_report(report: dict) -> str:
     lines.append(f"ID-column duplicates found: {report['id_dup_found']}")
 
     lines.append(
-        "\n--- Outlier capping (IQR method, per financial column) ---"
+        "\n--- Financial outliers (IQR fences; counted only, not capped) ---"
     )
-    for col, n in report["cap_counts"].items():
-        lines.append(f"  {col}: {n} value(s) capped")
-    total_capped = sum(report["cap_counts"].values())
-    lines.append(f"  Total values capped: {total_capped}")
+    for col, n in report["outlier_counts"].items():
+        lines.append(f"  {col}: {n} value(s) outside Tukey's fences")
+    total_outliers = sum(report["outlier_counts"].values())
+    lines.append(
+        f"  Total outlying values: {total_outliers} "
+        "(preserved unchanged in the cleaned file)"
+    )
 
     lines.append("\n--- EDUCATION value_counts (before recoding) ---")
     lines.append(report["education_before"].to_string())
@@ -357,23 +360,14 @@ def run_self_checks(report: dict) -> None:
     if "PAY_1" not in cleaned_df.columns:
         raise ValueError("PAY_1 missing after rename")
 
-    # Independently recompute IQR bounds from the post-dedup, pre-cap data (the
-    # same population cap_outliers_iqr itself used) and confirm the cleaned
-    # columns actually respect them -- proves capping happened, rather than
-    # trusting cap_counts alone. Must use df_pre_cap, not df_original: if
-    # duplicates existed and were removed, the raw (pre-dedup) distribution's
-    # IQR can differ from the one actually used for capping.
-    df_pre_cap = report["df_pre_cap"]
+    # Financial amounts must be byte-for-byte identical to the post-dedup
+    # frame: proving outliers were preserved, not clipped.
+    df_pre = report["df_pre_recode"]
     for col in FINANCIAL_COLUMNS:
-        valid = df_pre_cap[col].dropna()
-        q1, q3 = valid.quantile(0.25), valid.quantile(0.75)
-        iqr = q3 - q1
-        lower = round(q1 - IQR_MULTIPLIER * iqr)
-        upper = round(q3 + IQR_MULTIPLIER * iqr)
-        if not cleaned_df[col].dropna().between(lower, upper).all():
+        if not (cleaned_df[col].to_numpy() == df_pre[col].to_numpy()).all():
             raise ValueError(
-                f"{col} has values outside its IQR cap bounds "
-                f"[{lower}, {upper}] after cleaning"
+                f"{col} was altered during cleaning; financial outliers "
+                "must be preserved unchanged"
             )
 
     logger.info("All self-checks passed.")

@@ -106,7 +106,7 @@ num__PAY_3                0.0285
 
 ## 7. Limitations
 
-1. **Preprocessing leakage from cleaning.** IQR winsorization in `data_cleaning.py` was fit on all 30,000 rows. The model split happens after that, so test rows have already influenced the capped bounds. A production pipeline should fit caps inside the training fold only.
+1. **Skewed financial tails are kept as-is.** Cleaning no longer winsorizes credit limits, bills or payments. Tree models handle that skew naturally; a linear model may still want log1p or robust scaling fitted inside the training fold only.
 2. **Threshold is not cost-aware.** The cutoff maximises F1 on the training set. A lender should replace that with expected loss = FN_cost × miss_rate + FP_cost × false_alarm_rate.
 3. **Protected attributes.** SEX, EDUCATION and MARRIAGE are excluded from every feature set, including the selected `kitchen_sink` model. The EDA found them statistically significant but practically negligible, and SEX in particular is a protected attribute in consumer lending.
 4. **PAY-scale inconsistency.** Features that count any late month or use amount-based PAID_SHARE are safe; a PAY_1 − PAY_6 trend was deliberately excluded per the EDA.

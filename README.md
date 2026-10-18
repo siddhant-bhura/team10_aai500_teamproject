@@ -84,7 +84,7 @@ No outside partner.
 
 ## Methods Used
 
-- Data manipulation and cleaning (IQR capping, category recoding, self-checks)
+- Data manipulation and cleaning (outlier preservation, category recoding, self-checks)
 - Descriptive and inferential statistics (chi-square with Cramer's V, rank correlations, effect sizes, variance inflation factors)
 - Data visualization
 - Machine learning (logistic regression, random forest, histogram gradient boosting) with stratified train/test split and 5-fold cross-validation
@@ -125,10 +125,10 @@ Python, pandas, NumPy, scikit-learn, SciPy, statsmodels, Matplotlib, seaborn, Ju
 
 **Analysis and modeling.**
 
-1. Cleaning: no missing values or repeated IDs. 32,425 extreme money values were capped (no rows dropped) and 399 undocumented education and marriage codes were regrouped.
+1. Cleaning: no missing values or repeated IDs. Extreme money amounts are preserved (no winsorization; 32,425 cells sit outside IQR fences but are left unchanged). 399 undocumented education and marriage codes were regrouped.
 2. EDA: repayment history is the strongest signal. Customers one or more months late on the latest payment defaulted at 50.29%, against 13.83% for current customers. Demographics have small effects.
 3. Modeling: three input sets and four model families compared by 5-fold cross-validated PR-AUC on 24,000 training customers, then scored once on 6,000 held-back customers. The two tree models and the neural network are within noise of each other and all beat logistic regression.
-4. Robustness and fairness: refitting the caps on training rows only, taking the cut-off from out-of-fold predictions, and error rates by sex and education.
+4. Robustness and fairness: taking the cut-off from out-of-fold predictions, and error rates by sex and education.
 
 **Roadblocks.**
 
@@ -191,7 +191,8 @@ final-project/
 │   ├── report_figures/                 (model and neural network figures matching the report)
 │   └── neural_network/                 (results md, comparison and search CSVs, 3 figures)
 ├── presentation/
-│   └── video-outline-DRAFT.md          (script draft; the video itself is not produced)
+│   ├── Final-Project-Presentation-Script.md   (6–9 min executive script; record from this)
+│   └── video-outline-DRAFT.md                 (earlier internal draft)
 └── reproduced/                         (created by make all; ignored by git)
 ```
 
@@ -200,7 +201,7 @@ final-project/
 ## Deliverables and status
 
 - [x] Final report: `reports/Final-Project-Report-Team-10.pdf`. Open items: the team confirms the Introduction text and which model run is quoted.
-- [ ] Presentation: `Final-Project-Presentation-Team-10.mp4`, 8 to 10 minutes, every member presents an equal share, one slide naming each member and their contributions. Not recorded. Only a script draft exists (`presentation/video-outline-DRAFT.md`).
+- [ ] Presentation: `Final-Project-Presentation-Team-10.mp4`, 6 to 9 minutes (target ~7.5), every member presents an equal share, one slide naming each member and their contributions. Not recorded yet. Recording script: `presentation/Final-Project-Presentation-Script.md`.
 - [x] Code for cleaning, EDA, modeling and the neural network, a one-command run, and the executed notebook `notebooks/final_analysis.ipynb`.
 - [ ] Peer evaluation forms (Assignment 7.1, each member individually).
 - [ ] One member submits the PDF and MP4 on Canvas by Mon 19 Oct 2026, 11:59 PM Pacific. No extensions.
